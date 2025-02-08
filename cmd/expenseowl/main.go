@@ -137,14 +137,14 @@ func runClient(serverAddr string) {
 		log.Fatalf("Failed to marshal expense data: %v", err)
 	}
 	url := fmt.Sprintf("http://%s/expense", serverAddr)
-	resp, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		log.Fatalf("Failed to create request: %v", err)
 	}
-	resp.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
-	response, err := client.Do(resp)
+	response, err := client.Do(req)
 	if err != nil {
 		log.Fatalf("Failed to send request: %v", err)
 	}

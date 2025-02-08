@@ -100,7 +100,7 @@ func (h *Handler) ServeTableView(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	w.Header().Set("Cpntent-Type", "text/html")
+	w.Header().Set("Content-Type", "text/html")
 	if err := web.ServeTemplate(w, "table.html"); err != nil {
 		http.Error(w, "Failed to serve template", http.StatusInternalServerError)
 		return

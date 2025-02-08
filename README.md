@@ -209,5 +209,5 @@ Similarly, it can be specified in a Docker compose stack of a Docker CLI command
 
 - Backend: Go
 - Storage: JSON file system
-- Frontend: Chart.js and vanialla web stack (HTML, JS, CSS)
+- Frontend: Chart.js and vanilla web stack (HTML, JS, CSS)
 - Interface: CLI + Web UI

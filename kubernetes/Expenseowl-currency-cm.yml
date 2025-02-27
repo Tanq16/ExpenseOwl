@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: expenseowl-cm-currency
+  namespace: expenseowl
+data:
+  CURRENCY: jpy
+  
+  # Note: you can use any currency you required just change from jpy to any of these listed below
+
+  # "usd": "$",    // US Dollar
+  # "eur": "€",    // Euro
+  # "gbp": "£",    // British Pound
+  # "jpy": "¥",    // Japanese Yen
+  # "cny": "¥",    // Chinese Yuan
+  # "krw": "₩",    // Korean Won
+  # "inr": "₹",    // Indian Rupee
+  # "rub": "₽",    // Russian Ruble
+  # "brl": "R$",   // Brazilian Real
+  # "zar": "R",    // South African Rand
+  # "aed": "AED",  // UAE Dirham
+  # "aud": "A$",   // Australian Dollar
+  # "cad": "C$",   // Canadian Dollar
+  # "chf": "Fr",   // Swiss Franc
+  # "hkd": "HK$",  // Hong Kong Dollar
+  # "sgd": "S$",   // Singapore Dollar
+  # "thb": "฿",    // Thai Baht
+  # "try": "₺",    // Turkish Lira
+  # "mxn": "Mex$", // Mexican Peso
+  # "php": "₱",    // Philippine Peso
+  # "pln": "zł",   // Polish Złoty
+  # "sek": "kr",   // Swedish Krona
+  # "nzd": "NZ$",  // New Zealand Dollar
+  # "dkk": "kr.",  // Danish Krone
+  # "idr": "Rp",   // Indonesian Rupiah
+  # "ils": "₪",    // Israeli New Shekel
+  # "vnd": "₫",    // Vietnamese Dong
+  # "myr": "RM",   // Malaysian Ringgit
+

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: expenseowl-cm-expense
+  namespace: expenseowl
+data:
+  Food: Food
+  Groceries: Groceries
+  Travel: Travel
+  Rent: Rent
+  Utilities: Utilities
+  Money_Transfer: "Money Transfer"
+  Entertainment: Entertainment
+  Healthcare: Healthcare
+  Shopping: Shopping
+  Other: Other

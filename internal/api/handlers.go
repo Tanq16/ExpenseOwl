@@ -6,17 +6,16 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/tanq16/expenseowl/internal/config"
 	"github.com/tanq16/expenseowl/internal/storage"
 	"github.com/tanq16/expenseowl/internal/web"
 )
 
 type Handler struct {
 	storage storage.Storage
-	config  *config.Config
+	config  *storage.Config
 }
 
-func NewHandler(s storage.Storage, cfg *config.Config) *Handler {
+func NewHandler(s storage.Storage, cfg *storage.Config) *Handler {
 	return &Handler{
 		storage: s,
 		config:  cfg,
@@ -120,7 +119,7 @@ func (h *Handler) AddExpense(w http.ResponseWriter, r *http.Request) {
 	if !req.Date.IsZero() {
 		req.Date = req.Date.UTC()
 	}
-	expense := &config.Expense{
+	expense := &storage.Expense{
 		Name:     req.Name,
 		Category: req.Category,
 		Amount:   req.Amount,
@@ -160,7 +159,7 @@ func (h *Handler) EditExpense(w http.ResponseWriter, r *http.Request) {
 	if !req.Date.IsZero() {
 		req.Date = req.Date.UTC()
 	}
-	expense := &config.Expense{
+	expense := &storage.Expense{
 		ID:       id,
 		Name:     req.Name,
 		Category: req.Category,
@@ -173,10 +172,6 @@ func (h *Handler) EditExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.storage.EditExpense(expense); err != nil {
-		if err == storage.ErrExpenseNotFound {
-			writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "Expense not found"})
-			return
-		}
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Failed to edit expense"})
 		log.Printf("HTTP ERROR: Failed to edit expense: %v\n", err)
 		return
@@ -241,11 +236,6 @@ func (h *Handler) DeleteExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.storage.DeleteExpense(id); err != nil {
-		if err == storage.ErrExpenseNotFound {
-			writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "Expense not found"})
-			log.Printf("HTTP ERROR: Expense not found: %v\n", err)
-			return
-		}
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Failed to delete expense"})
 		log.Printf("HTTP ERROR: Failed to delete expense: %v\n", err)
 		return

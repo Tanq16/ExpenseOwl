@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tanq16/expenseowl/internal/config"
+	"github.com/tanq16/expenseowl/internal/storage"
 )
 
 func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
@@ -197,7 +197,7 @@ func (h *Handler) ImportCSV(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		// Save the expense
-		expense := &config.Expense{
+		expense := &storage.Expense{
 			ID:       "", // Ensure new ID value
 			Name:     name,
 			Category: category,
@@ -252,7 +252,7 @@ func (h *Handler) ImportJSON(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	var expenses []*config.Expense
+	var expenses []*storage.Expense
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&expenses); err != nil {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Error parsing JSON file"})

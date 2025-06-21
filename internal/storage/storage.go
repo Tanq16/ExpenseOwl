@@ -1,47 +1,80 @@
 package storage
 
 import (
+	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
-
-	"github.com/google/uuid"
-	"github.com/tanq16/expenseowl/internal/config"
 )
 
-var (
-	ErrExpenseNotFound = errors.New("expense not found")
-	ErrInvalidExpense  = errors.New("invalid expense data")
-)
-
+// Storage interface for all storage types
 type Storage interface {
-	SaveExpense(expense *config.Expense) error
-	GetAllExpenses() ([]*config.Expense, error)
+	Initialize() error
+	Close() error
+
+	GetConfig() (*Config, error)
+	GetCategories() ([]string, error)
+	UpdateCategories(categories []string) error
+	GetCurrency() (string, error)
+	UpdateCurrency(currency string) error
+	GetStartDate() (int, error)
+	UpdateStartDate(startDate int) error
+
+	SaveExpense(expense *Expense) error
+	GetAllExpenses() ([]*Expense, error)
+	GetExpense(id string) (*Expense, error)
 	DeleteExpense(id string) error
-	EditExpense(expense *config.Expense) error
+	EditExpense(expense *Expense) error
 }
 
+// Initialize initializes the storage
+func InitializeStorage() (Storage, error) {
+	dataStore := "json"
+	overrideDataStore := os.Getenv("DATA_STORE")
+	if overrideDataStore != "" {
+		dataStore = overrideDataStore
+	}
+	switch dataStore {
+	case "json":
+		return InitializeJsonStore()
+	case "mysql":
+		return InitializeMySqlStore()
+	case "postgres":
+		return InitializePostgresStore()
+	case "sqlite":
+		return InitializeSqliteStore()
+	}
+	return nil, fmt.Errorf("invalid data store: %s", dataStore)
+}
+
+// JSONStore implementats Storage interface - for JSON file storage
 type jsonStore struct {
-	filePath string
-	mu       sync.RWMutex
+	configPath string
+	filePath   string
+	mu         sync.RWMutex
 }
 
 type fileData struct {
-	Expenses []*config.Expense `json:"expenses"`
+	Expenses []*Expense `json:"expenses"`
 }
 
-func New(filePath string) (*jsonStore, error) {
+// initializes the JSON storage backend
+func InitializeJsonStore() (*jsonStore, error) {
+	customDir := os.Getenv("JSON_DIR")
+	if customDir == "" {
+		customDir = "data"
+	}
+	configPath := filepath.Join(customDir, "config.json")
+	filePath := filepath.Join(customDir, "expenses.json")
 	dir := filepath.Dir(filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create storage directory: %v", err)
 	}
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		initialData := fileData{Expenses: []*config.Expense{}}
+		initialData := fileData{Expenses: []*Expense{}}
 		data, err := json.Marshal(initialData)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal initial data: %v", err)
@@ -52,103 +85,49 @@ func New(filePath string) (*jsonStore, error) {
 	}
 	log.Println("Created expense storage file")
 	return &jsonStore{
-		filePath: filePath,
+		configPath: configPath,
+		filePath:   filePath,
 	}, nil
 }
 
-func (s *jsonStore) SaveExpense(expense *config.Expense) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	data, err := s.readFile()
-	if err != nil {
-		return fmt.Errorf("failed to read storage file: %v", err)
-	}
-	if expense.ID == "" {
-		expense.ID = uuid.New().String()
-	}
-	if expense.Date.IsZero() {
-		expense.Date = time.Now()
-	}
-	data.Expenses = append(data.Expenses, expense)
-	log.Printf("Added expense with ID %s\n", expense.ID)
-	return s.writeFile(data)
+// mySqlStore implements Storage interface - for MySQL database storage
+type mySqlStore struct {
+	db *sql.DB
 }
 
-func (s *jsonStore) DeleteExpense(id string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	data, err := s.readFile()
+// initializes the MySQL storage backend
+func InitializeMySqlStore() (*mySqlStore, error) {
+	db, err := sql.Open("mysql", os.Getenv("MYSQL_DSN"))
 	if err != nil {
-		return fmt.Errorf("failed to read storage file: %v", err)
+		return nil, fmt.Errorf("failed to open MySQL database: %v", err)
 	}
-	found := false
-	newExpenses := make([]*config.Expense, 0, len(data.Expenses)-1)
-	for _, exp := range data.Expenses {
-		if exp.ID != id {
-			newExpenses = append(newExpenses, exp)
-		} else {
-			found = true
-		}
-	}
-	// log.Printf("Looped to find expense with ID %s. Found: %v\n", id, found)
-	if !found {
-		return fmt.Errorf("expense with ID %s not found", id)
-	}
-	data.Expenses = newExpenses
-	log.Printf("Deleted expense with ID %s\n", id)
-	return s.writeFile(data)
+	return &mySqlStore{db: db}, nil
 }
 
-func (s *jsonStore) EditExpense(expense *config.Expense) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	data, err := s.readFile()
-	if err != nil {
-		return fmt.Errorf("failed to read storage file: %v", err)
-	}
-	found := false
-	for i, exp := range data.Expenses {
-		if exp.ID == expense.ID {
-			expense.Date = exp.Date
-			data.Expenses[i] = expense
-			found = true
-			break
-		}
-	}
-	if !found {
-		return ErrExpenseNotFound
-	}
-	log.Printf("Edited expense with ID %s\n", expense.ID)
-	return s.writeFile(data)
+// postgresStore implements Storage interface - for PostgreSQL database storage
+type postgresStore struct {
+	db *sql.DB
 }
 
-func (s *jsonStore) GetAllExpenses() ([]*config.Expense, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	data, err := s.readFile()
+// initializes the PostgreSQL storage backend
+func InitializePostgresStore() (*postgresStore, error) {
+	db, err := sql.Open("postgres", os.Getenv("POSTGRES_DSN"))
 	if err != nil {
-		return nil, fmt.Errorf("failed to read storage file: %v", err)
+		return nil, fmt.Errorf("failed to open PostgreSQL database: %v", err)
 	}
-	log.Println("Retrieved all expenses")
-	return data.Expenses, nil
+	return &postgresStore{db: db}, nil
 }
 
-func (s *jsonStore) readFile() (*fileData, error) {
-	content, err := os.ReadFile(s.filePath)
-	if err != nil {
-		return nil, err
-	}
-	var data fileData
-	if err := json.Unmarshal(content, &data); err != nil {
-		return nil, err
-	}
-	return &data, nil
+// sqliteStore implements Storage interface - for SQLite database storage
+type sqliteStore struct {
+	db *sql.DB
 }
 
-func (s *jsonStore) writeFile(data *fileData) error {
-	content, err := json.MarshalIndent(data, "", "    ")
+// initializes the SQLite storage backend
+func InitializeSqliteStore() (*sqliteStore, error) {
+	db, err := sql.Open("sqlite3", os.Getenv("SQLITE_DSN"))
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to open SQLite database: %v", err)
 	}
-	return os.WriteFile(s.filePath, content, 0644)
+	return &sqliteStore{db: db}, nil
 }

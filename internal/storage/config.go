@@ -1,4 +1,4 @@
-package config
+package storage
 
 import (
 	"encoding/json"
@@ -25,6 +25,14 @@ type FileConfig struct {
 	Categories []string `json:"categories"`
 	Currency   string   `json:"currency"`
 	StartDate  int      `json:"startDate"`
+}
+
+type Expense struct {
+	ID       string    `json:"id"`
+	Name     string    `json:"name"`
+	Category string    `json:"category"`
+	Amount   float64   `json:"amount"`
+	Date     time.Time `json:"date"`
 }
 
 var defaultCategories = []string{
@@ -69,14 +77,6 @@ var currencySymbols = map[string]string{
 	"ils": "₪",    // Israeli New Shekel
 	"vnd": "₫",    // Vietnamese Dong
 	"myr": "RM",   // Malaysian Ringgit
-}
-
-type Expense struct {
-	ID       string    `json:"id"`
-	Name     string    `json:"name"`
-	Category string    `json:"category"`
-	Amount   float64   `json:"amount"`
-	Date     time.Time `json:"date"`
 }
 
 func (e *Expense) Validate() error {

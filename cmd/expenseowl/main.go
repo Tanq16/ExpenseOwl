@@ -1,24 +1,23 @@
 package main
 
 import (
-	"flag"
 	"log"
 	"net/http"
-	"path/filepath"
 
 	"github.com/tanq16/expenseowl/internal/api"
-	"github.com/tanq16/expenseowl/internal/config"
 	"github.com/tanq16/expenseowl/internal/storage"
 	"github.com/tanq16/expenseowl/internal/web"
 )
 
-func runServer(dataPath string) {
-	cfg := config.NewConfig(dataPath)
-	storage, err := storage.New(filepath.Join(cfg.StoragePath, "expenses.json"))
+func runServer() {
+	storage, err := storage.InitializeStorage()
 	if err != nil {
 		log.Fatalf("Failed to initialize storage: %v", err)
 	}
-
+	cfg, err := storage.GetConfig()
+	if err != nil {
+		log.Fatalf("Failed to get config: %v", err)
+	}
 	handler := api.NewHandler(storage, cfg)
 	http.HandleFunc("/categories", handler.GetCategories)
 	http.HandleFunc("/categories/edit", handler.EditCategories)
@@ -61,7 +60,5 @@ func runServer(dataPath string) {
 }
 
 func main() {
-	dataPath := flag.String("data", "data", "Path to data directory")
-	flag.Parse()
-	runServer(*dataPath)
+	runServer()
 }

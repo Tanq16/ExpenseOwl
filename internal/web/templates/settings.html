@@ -10,7 +10,6 @@
 <body>
     <div class="container">
         <header>
-            <!-- <h1 align="center">ExpenseOwl</h1> -->
             <div class="nav-bar">
                 <a href="/">
                     <img src="/pwa/icon-512.png" alt="ExpenseOwl Logo" height="85" style="vertical-align: middle; margin-right: 20px;">
@@ -27,12 +26,10 @@
             </div>
         </header>
 
-        <!-- Categories Section -->
         <div class="form-container">
             <h2 align="center">Category Settings</h2>
             <div id="categories-manager">
                 <div id="categories-list" class="categories-list">
-                    <!-- Categories will be populated here -->
                 </div>
                 <div class="category-input-container">
                     <input type="text" id="newCategory" placeholder="Add new category">
@@ -44,19 +41,16 @@
         </div>
 
         <div class="settings-container">
-            <!-- Currency Section -->
             <div class="form-container half-width">
                 <h2 align="center">Currency Settings</h2>
                 <div class="currency-selector">
                     <select id="currencySelect">
-                        <!-- Currencies will be populated here -->
                     </select>
                     <button id="saveCurrency" class="nav-button">Save</button>
                 </div>
                 <div id="currencyMessage" class="form-message"></div>
             </div>
             
-            <!-- Start date section -->
             <div class="form-container half-width">
                 <h2 align="center">Start Date Settings</h2>
                 <div class="start-date-manager">
@@ -67,11 +61,10 @@
             </div>
         </div>
 
-        <!-- Import/Export Section -->
         <div class="form-container">
             <h2 align="center">Import/Export Data</h2>
             <div class="export-buttons">
-                <a href="/export/csv" class="nav-button" download="expenses.csv">
+                <!-- <a href="/export/csv" class="nav-button" download="expenses.csv">
                     <i class="fa-solid fa-file-csv"></i> Export CSV
                 </a>
                 <a href="/export/json" class="nav-button" download="expenses.json">
@@ -84,7 +77,7 @@
                 <label for="jsonFile" class="nav-button">
                     <i class="fa-solid fa-file-code"></i> Import JSON
                 </label>
-                <input type="file" id="jsonFile" accept=".json" style="display: none;">
+                <input type="file" id="jsonFile" accept=".json" style="display: none;"> -->
             </div>
             <div id="importMessage" class="form-message"></div>
             <div id="importSummary" class="import-summary" style="display: none;"></div>
@@ -92,43 +85,42 @@
     </div>
 
     <script>
-        const currencySymbols = {
-            "usd": "$",    // US Dollar
-            "eur": "€",    // Euro
-            "gbp": "£",    // British Pound
-            "jpy": "¥",    // Japanese Yen
-            "cny": "¥",    // Chinese Yuan
-            "krw": "₩",    // Korean Won
-            "inr": "₹",    // Indian Rupee
-            "rub": "₽",    // Russian Ruble
-            "brl": "R$",   // Brazilian Real
-            "zar": "R",    // South African Rand
-            "aed": "AED",  // UAE Dirham
-            "aud": "A$",   // Australian Dollar
-            "cad": "C$",   // Canadian Dollar
-            "chf": "Fr",   // Swiss Franc
-            "hkd": "HK$",  // Hong Kong Dollar
-            "sgd": "S$",   // Singapore Dollar
-            "thb": "฿",    // Thai Baht
-            "try": "₺",    // Turkish Lira
-            "mxn": "Mex$", // Mexican Peso
-            "php": "₱",    // Philippine Peso
-            "pln": "zł",   // Polish Złoty
-            "sek": "kr",   // Swedish Krona
-            "nzd": "NZ$",  // New Zealand Dollar
-            "dkk": "kr.",  // Danish Krone
-            "idr": "Rp",   // Indonesian Rupiah
-            "ils": "₪",    // Israeli New Shekel
-            "vnd": "₫",    // Vietnamese Dong
-            "myr": "RM",   // Malaysian Ringgit
+        const currencyBehaviors = {
+            "usd": { symbol: "$", useComma: false, useDecimals: true },
+            "eur": { symbol: "€", useComma: true, useDecimals: true },
+            "gbp": { symbol: "£", useComma: false, useDecimals: true },
+            "jpy": { symbol: "¥", useComma: false, useDecimals: false },
+            "cny": { symbol: "¥", useComma: false, useDecimals: true },
+            "krw": { symbol: "₩", useComma: false, useDecimals: false },
+            "inr": { symbol: "₹", useComma: false, useDecimals: true },
+            "rub": { symbol: "₽", useComma: true, useDecimals: true },
+            "brl": { symbol: "R$", useComma: true, useDecimals: true },
+            "zar": { symbol: "R", useComma: false, useDecimals: true },
+            "aed": { symbol: "AED", useComma: false, useDecimals: true },
+            "aud": { symbol: "A$", useComma: false, useDecimals: true },
+            "cad": { symbol: "C$", useComma: false, useDecimals: true },
+            "chf": { symbol: "Fr", useComma: false, useDecimals: true },
+            "hkd": { symbol: "HK$", useComma: false, useDecimals: true },
+            "sgd": { symbol: "S$", useComma: false, useDecimals: true },
+            "thb": { symbol: "฿", useComma: false, useDecimals: true },
+            "try": { symbol: "₺", useComma: true, useDecimals: true },
+            "mxn": { symbol: "Mex$", useComma: false, useDecimals: true },
+            "php": { symbol: "₱", useComma: false, useDecimals: true },
+            "pln": { symbol: "zł", useComma: true, useDecimals: true },
+            "sek": { symbol: "kr", useComma: false, useDecimals: true },
+            "nzd": { symbol: "NZ$", useComma: false, useDecimals: true },
+            "dkk": { symbol: "kr.", useComma: true, useDecimals: true },
+            "idr": { symbol: "Rp", useComma: false, useDecimals: true },
+            "ils": { symbol: "₪", useComma: false, useDecimals: true },
+            "vnd": { symbol: "₫", useComma: true, useDecimals: false },
+            "myr": { symbol: "RM", useComma: false, useDecimals: true },
         };
 
         let categories = [];
-        let currentCurrency = "";
+        let currentCurrency = "usd";
         let currentStartDate = 1;
         let draggedItem = null;
 
-        // Functions to show message
         function showMessage(elementId, message, isSuccess) {
             const messageDiv = document.getElementById(elementId);
             messageDiv.textContent = message;
@@ -139,7 +131,6 @@
             }, 3000);
         }
 
-        // Category functions
         function renderCategories() {
             const list = document.getElementById('categories-list');
             list.innerHTML = '';
@@ -158,7 +149,6 @@
                     </button>
                 `;
                 
-                // Add drag event listeners
                 item.addEventListener('dragstart', handleDragStart);
                 item.addEventListener('dragover', handleDragOver);
                 item.addEventListener('dragleave', handleDragLeave);
@@ -169,7 +159,6 @@
             });
         }
 
-        // Drag and drop handlers
         function handleDragStart(e) {
             this.classList.add('dragging');
             draggedItem = this;
@@ -183,13 +172,11 @@
             e.dataTransfer.dropEffect = 'move';
             this.classList.add('drag-over');
             if (this === draggedItem) return false;
-            // Determine it should go before or after this item
             const rect = this.getBoundingClientRect();
             const clientY = e.clientY;
             const threshold = rect.top + (rect.height / 2);
             const isBefore = clientY < threshold;
             removePlaceholders();
-            // Add a placeholder before or after this item
             const placeholder = document.createElement('div');
             placeholder.className = 'placeholder';
             if (isBefore) {
@@ -222,28 +209,23 @@
             e.stopPropagation();
             e.preventDefault();
             removePlaceholders();
-            // Don't do anything if dropping on the same item
             if (draggedItem !== this) {
+                const fromIndex = parseInt(draggedItem.dataset.index, 10);
+                let toIndex = parseInt(this.dataset.index, 10);
+                
                 const rect = this.getBoundingClientRect();
                 const clientY = e.clientY;
                 const threshold = rect.top + (rect.height / 2);
                 const isBefore = clientY < threshold;
-                
-                const fromIndex = parseInt(draggedItem.dataset.index);
-                let toIndex = parseInt(this.dataset.index);
-                
-                if (!isBefore && fromIndex < toIndex) {
-                    toIndex = toIndex; // Insert after
-                } else if (isBefore && fromIndex > toIndex) {
-                    toIndex = toIndex; // Insert before
-                } else if (isBefore && fromIndex < toIndex) {
-                    toIndex = toIndex - 1; // Adjust for removal of dragged item
-                } else if (!isBefore && fromIndex > toIndex) {
-                    toIndex = toIndex + 1; // Insert after, adjust for position
+
+                if (!isBefore) {
+                    toIndex++;
                 }
-                
-                const movedItem = categories[fromIndex];
-                categories.splice(fromIndex, 1);
+                if (fromIndex < toIndex) {
+                    toIndex--;
+                }
+
+                const movedItem = categories.splice(fromIndex, 1)[0];
                 categories.splice(toIndex, 0, movedItem);
                 renderCategories();
             }
@@ -275,9 +257,7 @@
             try {
                 const response = await fetch('/categories/edit', {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(categories)
                 });   
                 if (response.ok) {
@@ -291,15 +271,14 @@
             }
         }
 
-        // Currency functions
         function populateCurrencySelect() {
             const select = document.getElementById('currencySelect');
             select.innerHTML = '';
-            for (const [code, symbol] of Object.entries(currencySymbols)) {
+            for (const code in currencyBehaviors) {
                 const option = document.createElement('option');
                 option.value = code;
-                option.textContent = `${code.toUpperCase()} (${symbol})`;
-                if (symbol === currentCurrency) {
+                option.textContent = `${code.toUpperCase()} (${currencyBehaviors[code].symbol})`;
+                if (code === currentCurrency) {
                     option.selected = true;
                 }
                 select.appendChild(option);
@@ -311,14 +290,12 @@
             try {
                 const response = await fetch('/currency', {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(currencyCode)
                 });
                 if (response.ok) {
                     showMessage('currencyMessage', 'Currency saved successfully', true);
-                    currentCurrency = currencySymbols[currencyCode];
+                    currentCurrency = currencyCode;
                 } else {
                     showMessage('currencyMessage', 'Failed to save currency', false);
                 }
@@ -328,21 +305,18 @@
             }
         }
 
-        // Start date functions
         function populateStartDateInput() {
             const input = document.getElementById("startDate");
             input.value = currentStartDate;
         }
 
         async function saveStartDate() {
-            const startDate = document.getElementById("startDate").value;
+            const startDateValue = document.getElementById("startDate").value;
             try {
                 const response = await fetch('/startdate', {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: startDate
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(parseInt(startDateValue, 10))
                 });
                 if (response.ok) {
                     showMessage('startDateMessage', 'Start date saved successfully', true);
@@ -355,10 +329,9 @@
             }
         }
 
-        // Initialize the page
         async function initialize() {
             try {
-                const response = await fetch('/categories');
+                const response = await fetch('/config');
                 if (!response.ok) {
                     throw new Error('Failed to fetch configuration');
                 }
@@ -366,13 +339,7 @@
                 categories = [...config.categories];
                 currentCurrency = config.currency;
                 currentStartDate = config.startDate;
-                let currentCurrencyCode = "usd"; // Default
-                for (const [code, symbol] of Object.entries(currencySymbols)) {
-                    if (symbol === currentCurrency) {
-                        currentCurrencyCode = code;
-                        break;
-                    }
-                }
+                
                 renderCategories();
                 populateCurrencySelect();
                 populateStartDateInput();
@@ -382,79 +349,22 @@
             }
         }
 
-        // Import functions
         async function handleFileUpload(e) {
-            const fileInput = e.target;
-            const file = fileInput.files[0];
-            if (!file) return;
-            const fileType = fileInput.id === 'csvFile' ? 'csv' : 'json';
-            const formData = new FormData();
-            formData.append('file', file);
-
-            try {
-                // Show loading message
-                const importMessageDiv = document.getElementById('importMessage');
-                importMessageDiv.textContent = `Uploading ${fileType.toUpperCase()} file...`;
-                importMessageDiv.className = 'form-message';
-                const response = await fetch(`/import/${fileType}`, {
-                    method: 'POST',
-                    body: formData
-                });
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || `Failed to import ${fileType.toUpperCase()} file`);
-                }
-
-                const result = await response.json();
-                importMessageDiv.textContent = `Successfully imported ${result.imported} expenses!`;
-                importMessageDiv.className = 'form-message success';
-                const summaryDiv = document.getElementById('importSummary');
-                summaryDiv.style.display = 'block';
-                summaryDiv.innerHTML = `
-                    <div><strong>Total processed:</strong> ${result.total_processed}</div>
-                    <div><strong>Successfully imported:</strong> ${result.imported}</div>
-                    <div><strong>Skipped:</strong> ${result.skipped}</div>
-                `;
-
-                if (result.new_categories && result.new_categories.length > 0) {
-                    summaryDiv.innerHTML += `
-                        <div><strong>New categories added (refreshing in ~4 seconds):</strong> ${result.new_categories.join(', ')}</div>
-                    `;
-                    // Refresh needed to show new categories
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 4000);
-                } else {
-                    setTimeout(() => {
-                        importMessageDiv.textContent = '';
-                        importMessageDiv.className = 'form-message';
-                        summaryDiv.style.display = 'none';
-                    }, 4000);
-                }
-                fileInput.value = '';
-            } catch (error) {
-                console.error(`Error importing ${fileType} file:`, error);
-                const importMessageDiv = document.getElementById('importMessage');
-                importMessageDiv.textContent = `Error: ${error.message}`;
-                importMessageDiv.className = 'form-message error';
-                fileInput.value = '';
-            }
+            // This part is commented out as per instructions
         }
 
-        // Event listeners
         document.getElementById('addCategory').addEventListener('click', addCategory);
         document.getElementById('saveCategories').addEventListener('click', saveCategories);
         document.getElementById('saveCurrency').addEventListener('click', saveCurrency);
         document.getElementById('saveStartDate').addEventListener('click', saveStartDate);
-        document.getElementById('csvFile').addEventListener('change', handleFileUpload);
-        document.getElementById('jsonFile').addEventListener('change', handleFileUpload);
+        // document.getElementById('csvFile').addEventListener('change', handleFileUpload);
+        // document.getElementById('jsonFile').addEventListener('change', handleFileUpload);
         document.getElementById('newCategory').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 addCategory();
             }
         });
 
-        // Initialize on load
         document.addEventListener('DOMContentLoaded', initialize);
         window.removeCategory = removeCategory;
     </script>

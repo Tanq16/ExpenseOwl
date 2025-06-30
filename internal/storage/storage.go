@@ -1,154 +1,199 @@
 package storage
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
-	"log"
 	"os"
-	"path/filepath"
-	"sync"
 	"time"
-
-	"github.com/google/uuid"
-	"github.com/tanq16/expenseowl/internal/config"
 )
 
-var (
-	ErrExpenseNotFound = errors.New("expense not found")
-	ErrInvalidExpense  = errors.New("invalid expense data")
-)
-
+// Storage interface for all storage types
 type Storage interface {
-	SaveExpense(expense *config.Expense) error
-	GetAllExpenses() ([]*config.Expense, error)
-	DeleteExpense(id string) error
-	EditExpense(expense *config.Expense) error
+	Close() error
+	GetConfig() (*Config, error)
+
+	// Basic Config Updates
+	GetCategories() ([]string, error)
+	UpdateCategories(categories []string) error
+	GetTags() ([]string, error)
+	UpdateTags(tags []string) error
+	GetCurrency() (string, error)
+	UpdateCurrency(currency string) error
+	GetStartDate() (int, error)
+	UpdateStartDate(startDate int) error
+
+	// Recurring Expenses
+	GetRecurringExpenses() ([]RecurringExpense, error)
+	GetRecurringExpense(id string) (RecurringExpense, error)
+	AddRecurringExpense(recurringExpense RecurringExpense) error
+	RemoveRecurringExpense(id string, removeAll bool) error
+	UpdateRecurringExpense(id string, recurringExpense RecurringExpense, updateAll bool) error
+
+	// Expenses
+	GetAllExpenses() ([]Expense, error)
+	GetExpense(id string) (Expense, error)
+	AddExpense(expense Expense) error
+	RemoveExpense(id string) error
+	RemoveMultipleExpenses(ids []string) error
+	UpdateExpense(id string, expense Expense) error
 }
 
-type jsonStore struct {
-	filePath string
-	mu       sync.RWMutex
+// config for expense data
+type Config struct {
+	Categories        []string           `json:"categories"`
+	Currency          string             `json:"currency"`
+	StartDate         int                `json:"startDate"`
+	Tags              []string           `json:"tags"`
+	RecurringExpenses []RecurringExpense `json:"recurringExpenses"`
 }
 
-type fileData struct {
-	Expenses []*config.Expense `json:"expenses"`
+type RecurringExpense struct {
+	ID          string  `json:"id"`
+	Name        string  `json:"name"`
+	Amount      float64 `json:"amount"`
+	Tags        []string
+	Category    string
+	StartDate   time.Time `json:"startDate"`   // date of the first occurrence
+	Interval    string    `json:"interval"`    // daily, weekly, monthly, yearly
+	Occurrences int       `json:"occurrences"` // 0 for 10 years (heuristic), 10 for 10 occurrences
 }
 
-func New(filePath string) (*jsonStore, error) {
-	dir := filepath.Dir(filePath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create storage directory: %v", err)
-	}
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		initialData := fileData{Expenses: []*config.Expense{}}
-		data, err := json.Marshal(initialData)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal initial data: %v", err)
-		}
-		if err := os.WriteFile(filePath, data, 0644); err != nil {
-			return nil, fmt.Errorf("failed to create storage file: %v", err)
-		}
-	}
-	log.Println("Created expense storage file")
-	return &jsonStore{
-		filePath: filePath,
-	}, nil
+type BackendType string
+
+const (
+	BackendTypeJSON     BackendType = "json"
+	BackendTypePostgres BackendType = "postgres"
+)
+
+// config for the storage backend
+type SystemConfig struct {
+	StorageURL  string
+	StorageType BackendType
+	StorageUser string
+	StoragePass string
 }
 
-func (s *jsonStore) SaveExpense(expense *config.Expense) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	data, err := s.readFile()
-	if err != nil {
-		return fmt.Errorf("failed to read storage file: %v", err)
-	}
-	if expense.ID == "" {
-		expense.ID = uuid.New().String()
-	}
-	if expense.Date.IsZero() {
-		expense.Date = time.Now()
-	}
-	data.Expenses = append(data.Expenses, expense)
-	log.Printf("Added expense with ID %s\n", expense.ID)
-	return s.writeFile(data)
+// expense struct
+type Expense struct {
+	ID          string    `json:"id"`
+	RecurringID string    `json:"recurringID"`
+	Name        string    `json:"name"`
+	Tags        []string  `json:"tags"`
+	Category    string    `json:"category"`
+	Amount      float64   `json:"amount"`
+	Date        time.Time `json:"date"`
 }
 
-func (s *jsonStore) DeleteExpense(id string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	data, err := s.readFile()
-	if err != nil {
-		return fmt.Errorf("failed to read storage file: %v", err)
-	}
-	found := false
-	newExpenses := make([]*config.Expense, 0, len(data.Expenses)-1)
-	for _, exp := range data.Expenses {
-		if exp.ID != id {
-			newExpenses = append(newExpenses, exp)
-		} else {
-			found = true
-		}
-	}
-	// log.Printf("Looped to find expense with ID %s. Found: %v\n", id, found)
-	if !found {
-		return fmt.Errorf("expense with ID %s not found", id)
-	}
-	data.Expenses = newExpenses
-	log.Printf("Deleted expense with ID %s\n", id)
-	return s.writeFile(data)
+func (c *Config) SetBaseConfig() {
+	c.Categories = defaultCategories
+	c.Currency = "usd"
+	c.StartDate = 1
+	c.Tags = []string{}
+	c.RecurringExpenses = []RecurringExpense{}
 }
 
-func (s *jsonStore) EditExpense(expense *config.Expense) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	data, err := s.readFile()
-	if err != nil {
-		return fmt.Errorf("failed to read storage file: %v", err)
-	}
-	found := false
-	for i, exp := range data.Expenses {
-		if exp.ID == expense.ID {
-			expense.Date = exp.Date
-			data.Expenses[i] = expense
-			found = true
-			break
-		}
-	}
-	if !found {
-		return ErrExpenseNotFound
-	}
-	log.Printf("Edited expense with ID %s\n", expense.ID)
-	return s.writeFile(data)
+func (c *SystemConfig) SetStorageConfig() {
+	c.StorageType = backendTypeFromEnv(os.Getenv("STORAGE_TYPE"))
+	c.StorageURL = backendURLFromEnv(os.Getenv("STORAGE_URL"))
+	c.StorageUser = os.Getenv("STORAGE_USER")
+	c.StoragePass = os.Getenv("STORAGE_PASS")
 }
 
-func (s *jsonStore) GetAllExpenses() ([]*config.Expense, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	data, err := s.readFile()
-	if err != nil {
-		return nil, fmt.Errorf("failed to read storage file: %v", err)
+func backendTypeFromEnv(env string) BackendType {
+	switch env {
+	case "json":
+		return BackendTypeJSON
+	case "postgres":
+		return BackendTypePostgres
+	default:
+		return BackendTypeJSON
 	}
-	log.Println("Retrieved all expenses")
-	return data.Expenses, nil
 }
 
-func (s *jsonStore) readFile() (*fileData, error) {
-	content, err := os.ReadFile(s.filePath)
-	if err != nil {
-		return nil, err
+func backendURLFromEnv(env string) string {
+	if env == "" {
+		return "data"
 	}
-	var data fileData
-	if err := json.Unmarshal(content, &data); err != nil {
-		return nil, err
-	}
-	return &data, nil
+	return env
 }
 
-func (s *jsonStore) writeFile(data *fileData) error {
-	content, err := json.MarshalIndent(data, "", "    ")
-	if err != nil {
-		return err
+// initializes the storage backend
+func InitializeStorage() (Storage, error) {
+	baseConfig := SystemConfig{}
+	baseConfig.SetStorageConfig()
+	switch baseConfig.StorageType {
+	case BackendTypeJSON:
+		return InitializeJsonStore(baseConfig)
+	case BackendTypePostgres:
+		return InitializePostgresStore(baseConfig)
 	}
-	return os.WriteFile(s.filePath, content, 0644)
+	return nil, fmt.Errorf("invalid data store: %s", baseConfig.StorageType)
+}
+
+func (e *Expense) Validate() error {
+	if e.Amount == 0 || e.Name == "" || e.Category == "" {
+		return fmt.Errorf("missing required fields")
+	}
+	return nil
+}
+
+func (e *RecurringExpense) Validate() error {
+	if e.Amount == 0 || e.Name == "" || e.Category == "" {
+		return fmt.Errorf("missing required fields")
+	} else if e.Occurrences < 0 {
+		return fmt.Errorf("unexpected value for occurrences")
+	}
+	switch e.Interval {
+	case "daily":
+	case "weekly":
+	case "monthly":
+	case "yearly":
+	default:
+		return fmt.Errorf("invalid valude for interval")
+	}
+	return nil
+}
+
+// variables
+var defaultCategories = []string{
+	"Food",
+	"Groceries",
+	"Travel",
+	"Rent",
+	"Utilities",
+	"Entertainment",
+	"Healthcare",
+	"Shopping",
+	"Miscellaneous",
+	"Income",
+}
+
+var supportedCurrencies = []string{
+	"usd", // US Dollar
+	"eur", // Euro
+	"gbp", // British Pound
+	"jpy", // Japanese Yen
+	"cny", // Chinese Yuan
+	"krw", // Korean Won
+	"inr", // Indian Rupee
+	"rub", // Russian Ruble
+	"brl", // Brazilian Real
+	"zar", // South African Rand
+	"aed", // UAE Dirham
+	"aud", // Australian Dollar
+	"cad", // Canadian Dollar
+	"chf", // Swiss Franc
+	"hkd", // Hong Kong Dollar
+	"sgd", // Singapore Dollar
+	"thb", // Thai Baht
+	"try", // Turkish Lira
+	"mxn", // Mexican Peso
+	"php", // Philippine Peso
+	"pln", // Polish Złoty
+	"sek", // Swedish Krona
+	"nzd", // New Zealand Dollar
+	"dkk", // Danish Krone
+	"idr", // Indonesian Rupiah
+	"ils", // Israeli New Shekel
+	"vnd", // Vietnamese Dong
+	"myr", // Malaysian Ringgit
 }

@@ -10,7 +10,6 @@
 <body>
     <div class="container">
         <header>
-            <!-- <h1 align="center"><img src="/pwa/icon-512.png" alt="ExpenseOwl Logo" height="75" style="vertical-align: middle; margin-right: 10px;">ExpenseOwl</h1> -->
             <div class="nav-bar">
                 <a href="/">
                     <img src="/pwa/icon-512.png" alt="ExpenseOwl Logo" height="85" style="vertical-align: middle; margin-right: 20px;">
@@ -56,10 +55,9 @@
                     <label for="date">Date</label>
                     <input type="date" id="date" required>
                     <script>
-                        // Set today's date as default
                         const today = new Date();
                         const year = today.getFullYear();
-                        const month = String(today.getMonth() + 1).padStart(2, '0'); // January is 0
+                        const month = String(today.getMonth() + 1).padStart(2, '0');
                         const day = String(today.getDate()).padStart(2, '0');
                         const formattedDate = `${year}-${month}-${day}`;
                         document.getElementById('date').value = formattedDate;
@@ -73,7 +71,6 @@
         </div>
 
         <div id="tableContainer">
-            <!-- Table will be populated by JavaScript -->
         </div>
     </div>
 
@@ -89,19 +86,54 @@
     </div>
 
     <script>
-        let currencySymbol = '$'; // Default to USD
+        let currentCurrency = 'usd';
         let currentDate = new Date();
         let allExpenses = [];
-        let startDate = 1
+        let startDate = 1;
+
+        const currencyBehaviors = {
+            "usd": { symbol: "$", useComma: false, useDecimals: true },
+            "eur": { symbol: "€", useComma: true, useDecimals: true },
+            "gbp": { symbol: "£", useComma: false, useDecimals: true },
+            "jpy": { symbol: "¥", useComma: false, useDecimals: false },
+            "cny": { symbol: "¥", useComma: false, useDecimals: true },
+            "krw": { symbol: "₩", useComma: false, useDecimals: false },
+            "inr": { symbol: "₹", useComma: false, useDecimals: true },
+            "rub": { symbol: "₽", useComma: true, useDecimals: true },
+            "brl": { symbol: "R$", useComma: true, useDecimals: true },
+            "zar": { symbol: "R", useComma: false, useDecimals: true },
+            "aed": { symbol: "AED", useComma: false, useDecimals: true },
+            "aud": { symbol: "A$", useComma: false, useDecimals: true },
+            "cad": { symbol: "C$", useComma: false, useDecimals: true },
+            "chf": { symbol: "Fr", useComma: false, useDecimals: true },
+            "hkd": { symbol: "HK$", useComma: false, useDecimals: true },
+            "sgd": { symbol: "S$", useComma: false, useDecimals: true },
+            "thb": { symbol: "฿", useComma: false, useDecimals: true },
+            "try": { symbol: "₺", useComma: true, useDecimals: true },
+            "mxn": { symbol: "Mex$", useComma: false, useDecimals: true },
+            "php": { symbol: "₱", useComma: false, useDecimals: true },
+            "pln": { symbol: "zł", useComma: true, useDecimals: true },
+            "sek": { symbol: "kr", useComma: false, useDecimals: true },
+            "nzd": { symbol: "NZ$", useComma: false, useDecimals: true },
+            "dkk": { symbol: "kr.", useComma: true, useDecimals: true },
+            "idr": { symbol: "Rp", useComma: false, useDecimals: true },
+            "ils": { symbol: "₪", useComma: false, useDecimals: true },
+            "vnd": { symbol: "₫", useComma: true, useDecimals: false },
+            "myr": { symbol: "RM", useComma: false, useDecimals: true },
+        };
 
         function formatCurrency(amount) {
-            let formattedAmount = new Intl.NumberFormat('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}).format(amount);
-            // Currencies commonly used after the amount
+            const behavior = currencyBehaviors[currentCurrency] || { symbol: '$', useComma: false, useDecimals: true };
+            const options = {
+                minimumFractionDigits: behavior.useDecimals ? 2 : 0,
+                maximumFractionDigits: behavior.useDecimals ? 2 : 0,
+            };
+            let formattedAmount = new Intl.NumberFormat(behavior.useComma ? 'de-DE' : 'en-US', options).format(amount);
             const postfixCurrencies = new Set(['kr', 'kr.', 'Fr', 'zł']);
-            if (postfixCurrencies.has(currencySymbol)) {
-                return `${formattedAmount} ${currencySymbol}`;
+            if (postfixCurrencies.has(behavior.symbol)) {
+                return `${formattedAmount} ${behavior.symbol}`;
             }
-            return `${currencySymbol} ${formattedAmount}`;
+            return `${behavior.symbol} ${formattedAmount}`;
         }
 
         function formatMonth(date) {
@@ -111,6 +143,7 @@
                 timeZone: getUserTimeZone()
             });
         }
+
         function getISODateWithLocalTime(dateInput) {
             const [year, month, day] = dateInput.split('-').map(Number);
             const now = new Date();
@@ -120,9 +153,11 @@
             const localDateTime = new Date(year, month - 1, day, hours, minutes, seconds);
             return localDateTime.toISOString();
         }
+
         function getUserTimeZone() {
             return Intl.DateTimeFormat().resolvedOptions().timeZone;
         }
+
         function formatDateFromUTC(utcDateString) {
             const date = new Date(utcDateString);
             return date.toLocaleDateString('en-US', {
@@ -138,49 +173,44 @@
         function updateMonthDisplay() {
             document.getElementById('currentMonth').textContent = formatMonth(currentDate);
         }
+        
         function getMonthBounds(date) {
             const localDate = new Date(date);
-            // If startDate is 1, return generic month bounds
             if (startDate === 1) {
                 const startLocal = new Date(localDate.getFullYear(), localDate.getMonth(), 1);
                 const endLocal = new Date(localDate.getFullYear(), localDate.getMonth() + 1, 0, 23, 59, 59, 999);
-                const start = new Date(startLocal.toISOString());
-                const end = new Date(endLocal.toISOString());
-                return { start, end };
+                return { start: new Date(startLocal.toISOString()), end: new Date(endLocal.toISOString()) };
             }
-            // If startDate is not 1, need to account for variations in month length
+            
             let thisMonthStartDate = startDate;
             let prevMonthStartDate = startDate;
-            let nextMonthStartDate = startDate;
-            // Adjust for variations in current, previous and next months
+            
             const currentMonth = localDate.getMonth();
             const currentYear = localDate.getFullYear();
-            const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate(); // last day of current month
+            const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
             thisMonthStartDate = Math.min(thisMonthStartDate, daysInCurrentMonth);
+            
             const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
             const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
             const daysInPrevMonth = new Date(prevYear, prevMonth + 1, 0).getDate();
             prevMonthStartDate = Math.min(prevMonthStartDate, daysInPrevMonth);
-            const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
-            const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
-            const daysInNextMonth = new Date(nextYear, nextMonth + 1, 0).getDate();
-            nextMonthStartDate = Math.min(nextMonthStartDate, daysInNextMonth);
-            
-            // Return bounds for current period or the previous period
+
             if (localDate.getDate() < thisMonthStartDate) {
                 const startLocal = new Date(prevYear, prevMonth, prevMonthStartDate);
                 const endLocal = new Date(currentYear, currentMonth, thisMonthStartDate - 1, 23, 59, 59, 999);
-                const start = new Date(startLocal.toISOString());
-                const end = new Date(endLocal.toISOString());
-                return { start, end };
+                return { start: new Date(startLocal.toISOString()), end: new Date(endLocal.toISOString()) };
             } else {
+                const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
+                const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
+                const daysInNextMonth = new Date(nextYear, nextMonth + 1, 0).getDate();
+                let nextMonthStartDate = Math.min(startDate, daysInNextMonth);
+
                 const startLocal = new Date(currentYear, currentMonth, thisMonthStartDate);
                 const endLocal = new Date(nextYear, nextMonth, nextMonthStartDate - 1, 23, 59, 59, 999);
-                const start = new Date(startLocal.toISOString());
-                const end = new Date(endLocal.toISOString());
-                return { start, end };
+                return { start: new Date(startLocal.toISOString()), end: new Date(endLocal.toISOString()) };
             }
         }
+        
         function getMonthExpenses(expenses) {
             const { start, end } = getMonthBounds(currentDate);
             return expenses.filter(exp => {
@@ -249,19 +279,20 @@
 
         async function initialize() {
             try {
-                // Fetch config response
-                const configResponse = await fetch('/categories');
+                const configResponse = await fetch('/config');
                 if (!configResponse.ok) throw new Error('Failed to fetch configuration');
                 const config = await configResponse.json();
                 const categorySelect = document.getElementById('category');
                 categorySelect.innerHTML = config.categories.map(cat => 
                     `<option value="${cat}">${cat}</option>`
                 ).join('');
-                currencySymbol = config.currency;
+                currentCurrency = config.currency;
                 startDate = config.startDate;
+                
                 const response = await fetch('/expenses');
                 if (!response.ok) throw new Error('Failed to fetch data');
                 allExpenses = await response.json();
+                
                 updateMonthDisplay();
                 updateTable();
             } catch (error) {
@@ -272,24 +303,13 @@
         }
 
         document.getElementById('prevMonth').addEventListener('click', () => {
-            currentDate = new Date(
-                currentDate.getFullYear(),
-                currentDate.getMonth() - 1,
-                1,
-                currentDate.getHours(),
-                currentDate.getMinutes()
-            );
+            currentDate.setMonth(currentDate.getMonth() - 1);
             updateMonthDisplay();
             updateTable();
         });
+
         document.getElementById('nextMonth').addEventListener('click', () => {
-            currentDate = new Date(
-                currentDate.getFullYear(),
-                currentDate.getMonth() + 1,
-                1,
-                currentDate.getHours(),
-                currentDate.getMinutes()
-            );
+            currentDate.setMonth(currentDate.getMonth() + 1);
             updateMonthDisplay();
             updateTable();
         });
@@ -315,7 +335,6 @@
                 if (!response.ok) {
                     throw new Error('Failed to delete expense');
                 }
-                // Refresh the expenses data
                 await initialize();
                 closeDeleteModal();
             } catch (error) {
@@ -344,9 +363,7 @@
                 const url = editId ? `/expense/edit?id=${editId}` : '/expense';
                 const response = await fetch(url, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
                 });
                 const messageDiv = document.getElementById('formMessage');
@@ -367,7 +384,6 @@
                     messageDiv.textContent = `Error: ${error.error || 'Failed to save expense'}`;
                     messageDiv.className = 'form-message error';
                 }
-                // Clear message after 3 seconds
                 setTimeout(() => {
                     messageDiv.textContent = '';
                     messageDiv.className = 'form-message';

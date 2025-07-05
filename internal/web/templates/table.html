@@ -10,7 +10,6 @@
 <body>
     <div class="container">
         <header>
-            <!-- <h1 align="center"><img src="/pwa/icon-512.png" alt="ExpenseOwl Logo" height="75" style="vertical-align: middle; margin-right: 10px;">ExpenseOwl</h1> -->
             <div class="nav-bar">
                 <a href="/">
                     <img src="/pwa/icon-512.png" alt="ExpenseOwl Logo" height="85" style="vertical-align: middle; margin-right: 20px;">
@@ -32,6 +31,12 @@
             <div class="current-month" id="currentMonth"></div>
             <button id="nextMonth" class="nav-button"><i class="fa-solid fa-arrow-right"></i></button>
         </div>
+        
+        <div class="table-controls">
+            <label for="showAllToggle">
+                <input type="checkbox" id="showAllToggle" class="styled-checkbox"> Show All Transactions
+            </label>
+        </div>
 
         <div class="form-container">
             <form id="expenseForm" class="expense-form">
@@ -46,34 +51,44 @@
                         <option value="">categories</option>
                     </select>
                 </div>
+
+                <div class="form-group">
+                    <label for="tags-input">Tags</label>
+                    <div id="tags-input-container" class="tags-input-container">
+                        <div id="selected-tags" class="selected-tags"></div>
+                        <input type="text" id="tags-input" placeholder="Add tags...">
+                    </div>
+                    <div id="tags-dropdown" class="tags-dropdown"></div>
+                </div>
                 
                 <div class="form-group">
                     <label for="amount">Amount</label>
-                    <input type="number" id="amount" step="0.01" required>
+                    <input type="number" id="amount" step="0.01" min="0" required>
                 </div>
                 
                 <div class="form-group">
                     <label for="date">Date</label>
                     <input type="date" id="date" required>
                     <script>
-                        // Set today's date as default
                         const today = new Date();
                         const year = today.getFullYear();
-                        const month = String(today.getMonth() + 1).padStart(2, '0'); // January is 0
+                        const month = String(today.getMonth() + 1).padStart(2, '0');
                         const day = String(today.getDate()).padStart(2, '0');
                         const formattedDate = `${year}-${month}-${day}`;
                         document.getElementById('date').value = formattedDate;
                     </script>
                 </div>
                 
+                <div class="form-group form-group-checkbox">
+                    <label for="reportGain">Report Gain</label>
+                    <input type="checkbox" id="reportGain" class="styled-checkbox">
+                </div>
+
                 <button type="submit" class="nav-button">Add Expense</button>
-                <div id="formMessage" class="form-message"></div>
             </form>
-            <div id="formMessage" class="form-message"></div>
         </div>
 
         <div id="tableContainer">
-            <!-- Table will be populated by JavaScript -->
         </div>
     </div>
 
@@ -89,19 +104,77 @@
     </div>
 
     <script>
-        let currencySymbol = '$'; // Default to USD
+        let currentCurrency = 'usd';
         let currentDate = new Date();
         let allExpenses = [];
-        let startDate = 1
+        let expensesForTable = [];
+        let startDate = 1;
+
+        let allTags = new Set();
+        let selectedTags = new Set();
+
+        const currencyBehaviors = {
+            "usd": { symbol: "$", useComma: false, useDecimals: true },
+            "eur": { symbol: "€", useComma: true, useDecimals: true },
+            "gbp": { symbol: "£", useComma: false, useDecimals: true },
+            "jpy": { symbol: "¥", useComma: false, useDecimals: false },
+            "cny": { symbol: "¥", useComma: false, useDecimals: true },
+            "krw": { symbol: "₩", useComma: false, useDecimals: false },
+            "inr": { symbol: "₹", useComma: false, useDecimals: true },
+            "rub": { symbol: "₽", useComma: true, useDecimals: true },
+            "brl": { symbol: "R$", useComma: true, useDecimals: true },
+            "zar": { symbol: "R", useComma: false, useDecimals: true },
+            "aed": { symbol: "AED", useComma: false, useDecimals: true },
+            "aud": { symbol: "A$", useComma: false, useDecimals: true },
+            "cad": { symbol: "C$", useComma: false, useDecimals: true },
+            "chf": { symbol: "Fr", useComma: false, useDecimals: true },
+            "hkd": { symbol: "HK$", useComma: false, useDecimals: true },
+            "sgd": { symbol: "S$", useComma: false, useDecimals: true },
+            "thb": { symbol: "฿", useComma: false, useDecimals: true },
+            "try": { symbol: "₺", useComma: true, useDecimals: true },
+            "mxn": { symbol: "Mex$", useComma: false, useDecimals: true },
+            "php": { symbol: "₱", useComma: false, useDecimals: true },
+            "pln": { symbol: "zł", useComma: true, useDecimals: true },
+            "sek": { symbol: "kr", useComma: false, useDecimals: true },
+            "nzd": { symbol: "NZ$", useComma: false, useDecimals: true },
+            "dkk": { symbol: "kr.", useComma: true, useDecimals: true },
+            "idr": { symbol: "Rp", useComma: false, useDecimals: true },
+            "ils": { symbol: "₪", useComma: false, useDecimals: true },
+            "vnd": { symbol: "₫", useComma: true, useDecimals: false },
+            "myr": { symbol: "RM", useComma: false, useDecimals: true },
+        };
+        
+        function escapeHTML(str) {
+            if (typeof str !== 'string') return str;
+            return str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        }
 
         function formatCurrency(amount) {
-            let formattedAmount = new Intl.NumberFormat('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}).format(amount);
-            // Currencies commonly used after the amount
+            const behavior = currencyBehaviors[currentCurrency] || { symbol: '$', useComma: false, useDecimals: true };
+            const isNegative = amount < 0;
+            const absAmount = Math.abs(amount);
+
+            const options = {
+                minimumFractionDigits: behavior.useDecimals ? 2 : 0,
+                maximumFractionDigits: behavior.useDecimals ? 2 : 0,
+            };
+            let formattedAmount = new Intl.NumberFormat(behavior.useComma ? 'de-DE' : 'en-US', options).format(absAmount);
             const postfixCurrencies = new Set(['kr', 'kr.', 'Fr', 'zł']);
-            if (postfixCurrencies.has(currencySymbol)) {
-                return `${formattedAmount} ${currencySymbol}`;
+            let result;
+            if (postfixCurrencies.has(behavior.symbol)) {
+                result = `${formattedAmount} ${behavior.symbol}`;
+            } else {
+                result = `${behavior.symbol}${formattedAmount}`;
             }
-            return `${currencySymbol} ${formattedAmount}`;
+            return isNegative ? `-${result}` : result;
         }
 
         function formatMonth(date) {
@@ -111,6 +184,7 @@
                 timeZone: getUserTimeZone()
             });
         }
+
         function getISODateWithLocalTime(dateInput) {
             const [year, month, day] = dateInput.split('-').map(Number);
             const now = new Date();
@@ -120,9 +194,11 @@
             const localDateTime = new Date(year, month - 1, day, hours, minutes, seconds);
             return localDateTime.toISOString();
         }
+
         function getUserTimeZone() {
             return Intl.DateTimeFormat().resolvedOptions().timeZone;
         }
+
         function formatDateFromUTC(utcDateString) {
             const date = new Date(utcDateString);
             return date.toLocaleDateString('en-US', {
@@ -138,49 +214,44 @@
         function updateMonthDisplay() {
             document.getElementById('currentMonth').textContent = formatMonth(currentDate);
         }
+        
         function getMonthBounds(date) {
             const localDate = new Date(date);
-            // If startDate is 1, return generic month bounds
             if (startDate === 1) {
                 const startLocal = new Date(localDate.getFullYear(), localDate.getMonth(), 1);
                 const endLocal = new Date(localDate.getFullYear(), localDate.getMonth() + 1, 0, 23, 59, 59, 999);
-                const start = new Date(startLocal.toISOString());
-                const end = new Date(endLocal.toISOString());
-                return { start, end };
+                return { start: new Date(startLocal.toISOString()), end: new Date(endLocal.toISOString()) };
             }
-            // If startDate is not 1, need to account for variations in month length
+            
             let thisMonthStartDate = startDate;
             let prevMonthStartDate = startDate;
-            let nextMonthStartDate = startDate;
-            // Adjust for variations in current, previous and next months
+            
             const currentMonth = localDate.getMonth();
             const currentYear = localDate.getFullYear();
-            const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate(); // last day of current month
+            const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
             thisMonthStartDate = Math.min(thisMonthStartDate, daysInCurrentMonth);
+            
             const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
             const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
             const daysInPrevMonth = new Date(prevYear, prevMonth + 1, 0).getDate();
             prevMonthStartDate = Math.min(prevMonthStartDate, daysInPrevMonth);
-            const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
-            const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
-            const daysInNextMonth = new Date(nextYear, nextMonth + 1, 0).getDate();
-            nextMonthStartDate = Math.min(nextMonthStartDate, daysInNextMonth);
-            
-            // Return bounds for current period or the previous period
+
             if (localDate.getDate() < thisMonthStartDate) {
                 const startLocal = new Date(prevYear, prevMonth, prevMonthStartDate);
                 const endLocal = new Date(currentYear, currentMonth, thisMonthStartDate - 1, 23, 59, 59, 999);
-                const start = new Date(startLocal.toISOString());
-                const end = new Date(endLocal.toISOString());
-                return { start, end };
+                return { start: new Date(startLocal.toISOString()), end: new Date(endLocal.toISOString()) };
             } else {
+                const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
+                const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
+                const daysInNextMonth = new Date(nextYear, nextMonth + 1, 0).getDate();
+                let nextMonthStartDate = Math.min(startDate, daysInNextMonth);
+
                 const startLocal = new Date(currentYear, currentMonth, thisMonthStartDate);
                 const endLocal = new Date(nextYear, nextMonth, nextMonthStartDate - 1, 23, 59, 59, 999);
-                const start = new Date(startLocal.toISOString());
-                const end = new Date(endLocal.toISOString());
-                return { start, end };
+                return { start: new Date(startLocal.toISOString()), end: new Date(endLocal.toISOString()) };
             }
         }
+        
         function getMonthExpenses(expenses) {
             const { start, end } = getMonthBounds(currentDate);
             return expenses.filter(exp => {
@@ -190,32 +261,38 @@
         }
 
         function createTable(expenses) {
-            if (expenses.length === 0) {
-                return `<div class="no-data">No expenses recorded for this month</div>`;
+            if (!expenses || expenses.length === 0) {
+                const message = document.getElementById('showAllToggle').checked ? 
+                                'No transactions found' : 
+                                'No expenses recorded for this month';
+                return `<div class="no-data">${message}</div>`;
             }
+            const hasTags = expenses.some(exp => exp.tags && exp.tags.length > 0);
             return `
                 <table class="expense-table">
                     <thead>
                         <tr>
                             <th>Name</th>
                             <th>Category</th>
+                            ${hasTags ? '<th class="tags-column">Tags</th>' : ''}
                             <th>Amount</th>
                             <th class="date-header">Date</th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${expenses.map(expense => `
+                        ${expenses.map((expense, index) => `
                             <tr>
-                                <td>${expense.name}</td>
-                                <td>${expense.category}</td>
+                                <td>${escapeHTML(expense.name)}</td>
+                                <td>${escapeHTML(expense.category)}</td>
+                                ${hasTags ? `<td class="tags-column">${(expense.tags || []).map(escapeHTML).join(', ')}</td>` : ''}
                                 <td class="amount">${formatCurrency(expense.amount)}</td>
                                 <td class="date-column">${formatDateFromUTC(expense.date)}</td>
                                 <td>
-                                    <button class="delete-button" onclick="editExpense('${expense.id}', '${expense.name}', '${expense.category}', ${expense.amount}, '${expense.date}')">
+                                    <button class="edit-button" onclick="editExpenseByIndex(${index})">
                                         <i class="fa-solid fa-pen-to-square"></i>
                                     </button>
-                                    <button class="delete-button" onclick="showDeleteModal('${expense.id}')">
+                                    <button class="delete-button" onclick="handleDeleteClick(event, '${expense.id}')">
                                         <i class="fa-solid fa-trash-can"></i>
                                     </button>
                                 </td>
@@ -227,43 +304,169 @@
         }
 
         function updateTable() {
-            const monthExpenses = getMonthExpenses(allExpenses);
+            const showAll = document.getElementById('showAllToggle').checked;
+            document.getElementById('prevMonth').disabled = showAll;
+            document.getElementById('nextMonth').disabled = showAll;
+            document.getElementById('currentMonth').style.visibility = showAll ? 'hidden' : 'visible';
+
+            expensesForTable = showAll
+                ? allExpenses.slice().sort((a, b) => new Date(b.date) - new Date(a.date))
+                : getMonthExpenses(allExpenses);
+            
             const tableContainer = document.getElementById('tableContainer');
-            tableContainer.innerHTML = createTable(monthExpenses);
+            tableContainer.innerHTML = createTable(expensesForTable);
         }
 
-        function editExpense(id, name, category, amount, date) {
+        function editExpenseByIndex(index) {
+            const expense = expensesForTable[index];
+            if (expense) {
+                editExpense(expense.id, expense.name, expense.category, expense.amount, (expense.tags || []), expense.date);
+            }
+        }
+
+        function renderSelectedTags(tags) {
+            const selectedContainer = document.getElementById('selected-tags');
+            selectedContainer.innerHTML = '';
+            selectedTags.clear();
+            (tags || []).forEach(tag => {
+                selectedTags.add(tag);
+                const pill = document.createElement('div');
+                pill.className = 'tag-pill';
+                pill.textContent = tag;
+                const removeBtn = document.createElement('span');
+                removeBtn.className = 'remove-tag';
+                removeBtn.textContent = '×';
+                removeBtn.onclick = () => {
+                    selectedTags.delete(tag);
+                    pill.remove();
+                };
+                pill.appendChild(removeBtn);
+                selectedContainer.appendChild(pill);
+            });
+        }
+
+        function editExpense(id, name, category, amount, tags, date) {
+            const isGain = amount < 0;
             document.getElementById('name').value = name;
             document.getElementById('category').value = category;
-            document.getElementById('amount').value = amount;
+            document.getElementById('amount').value = Math.abs(amount);
+            document.getElementById('reportGain').checked = isGain;
+            renderSelectedTags(tags);
+            
             const localDate = new Date(date);
             const year = localDate.getFullYear();
             const month = String(localDate.getMonth() + 1).padStart(2, '0');
             const day = String(localDate.getDate()).padStart(2, '0');
             document.getElementById('date').value = `${year}-${month}-${day}`;
+            
             const form = document.getElementById('expenseForm');
             form.dataset.editId = id;
             const submitButton = form.querySelector('button[type="submit"]');
             submitButton.textContent = 'Update Expense';
+            
+            form.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function setupTagInput() {
+            const container = document.getElementById('tags-input-container');
+            const input = document.getElementById('tags-input');
+            const dropdown = document.getElementById('tags-dropdown');
+            const formGroup = container.parentElement;
+
+            const addTag = (tag) => {
+                tag = tag.trim();
+                if (tag && !selectedTags.has(tag)) {
+                    selectedTags.add(tag);
+                    renderSelectedTags(Array.from(selectedTags));
+                }
+                input.value = '';
+                dropdown.style.display = 'none';
+            };
+
+            input.addEventListener('focus', () => {
+                dropdown.innerHTML = '';
+                const availableTags = [...allTags].filter(tag => !selectedTags.has(tag));
+                if (availableTags.length > 0) {
+                    availableTags.forEach(tag => {
+                        const item = document.createElement('div');
+                        item.textContent = tag;
+                        item.onclick = () => addTag(tag);
+                        dropdown.appendChild(item);
+                    });
+                    dropdown.style.display = 'block';
+                }
+            });
+
+            input.addEventListener('input', () => {
+                const value = input.value.trim().toLowerCase();
+                dropdown.innerHTML = '';
+                const filteredTags = [...allTags].filter(tag => tag.toLowerCase().includes(value) && !selectedTags.has(tag));
+                
+                if(value && ![...allTags].map(t => t.toLowerCase()).includes(value)) {
+                    const newItem = document.createElement('div');
+                    newItem.textContent = `+ Create "${input.value.trim()}"`;
+                    newItem.className = 'new-tag';
+                    newItem.onclick = () => addTag(input.value.trim());
+                    dropdown.appendChild(newItem);
+                }
+
+                if (filteredTags.length > 0) {
+                    filteredTags.forEach(tag => {
+                        const item = document.createElement('div');
+                        item.textContent = tag;
+                        item.onclick = () => addTag(tag);
+                        dropdown.appendChild(item);
+                    });
+                }
+                
+                dropdown.style.display = 'block';
+                if (dropdown.children.length === 0) dropdown.style.display = 'none';
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (input.value.trim()) {
+                        addTag(input.value.trim());
+                    }
+                }
+            });
+
+            container.addEventListener('click', () => input.focus());
+            document.addEventListener('click', (e) => {
+                if (!formGroup.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                }
+            });
         }
 
         async function initialize() {
             try {
-                // Fetch config response
-                const configResponse = await fetch('/categories');
+                const configResponse = await fetch('/config');
                 if (!configResponse.ok) throw new Error('Failed to fetch configuration');
                 const config = await configResponse.json();
                 const categorySelect = document.getElementById('category');
                 categorySelect.innerHTML = config.categories.map(cat => 
                     `<option value="${cat}">${cat}</option>`
                 ).join('');
-                currencySymbol = config.currency;
+                currentCurrency = config.currency;
                 startDate = config.startDate;
+                
                 const response = await fetch('/expenses');
                 if (!response.ok) throw new Error('Failed to fetch data');
-                allExpenses = await response.json();
+                const data = await response.json();
+                allExpenses = Array.isArray(data) ? data : (data && Array.isArray(data.expenses) ? data.expenses : []);
+                
+                allTags.clear();
+                allExpenses.forEach(exp => {
+                    if (exp.tags) {
+                        exp.tags.forEach(tag => allTags.add(tag));
+                    }
+                });
+
                 updateMonthDisplay();
                 updateTable();
+                setupTagInput();
             } catch (error) {
                 console.error('Failed to initialize table:', error);
                 document.getElementById('tableContainer').innerHTML = 
@@ -271,25 +474,16 @@
             }
         }
 
+        document.getElementById('showAllToggle').addEventListener('change', updateTable);
+
         document.getElementById('prevMonth').addEventListener('click', () => {
-            currentDate = new Date(
-                currentDate.getFullYear(),
-                currentDate.getMonth() - 1,
-                1,
-                currentDate.getHours(),
-                currentDate.getMinutes()
-            );
+            currentDate.setMonth(currentDate.getMonth() - 1);
             updateMonthDisplay();
             updateTable();
         });
+
         document.getElementById('nextMonth').addEventListener('click', () => {
-            currentDate = new Date(
-                currentDate.getFullYear(),
-                currentDate.getMonth() + 1,
-                1,
-                currentDate.getHours(),
-                currentDate.getMinutes()
-            );
+            currentDate.setMonth(currentDate.getMonth() + 1);
             updateMonthDisplay();
             updateTable();
         });
@@ -299,6 +493,15 @@
         function showDeleteModal(id) {
             expenseToDelete = id;
             document.getElementById('deleteModal').classList.add('active');
+        }
+
+        function handleDeleteClick(event, id) {
+            if (event.shiftKey) {
+                expenseToDelete = id;
+                confirmDelete();
+            } else {
+                showDeleteModal(id);
+            }
         }
 
         function closeDeleteModal() {
@@ -315,7 +518,6 @@
                 if (!response.ok) {
                     throw new Error('Failed to delete expense');
                 }
-                // Refresh the expenses data
                 await initialize();
                 closeDeleteModal();
             } catch (error) {
@@ -334,19 +536,24 @@
             e.preventDefault();
             const form = e.target;
             const editId = form.dataset.editId;
+            const isGain = document.getElementById('reportGain').checked;
+            let amount = parseFloat(document.getElementById('amount').value);
+            if (isGain) {
+                amount *= -1;
+            }
+
             const formData = {
                 name: document.getElementById('name').value,
                 category: document.getElementById('category').value,
-                amount: parseFloat(document.getElementById('amount').value),
-                date: getISODateWithLocalTime(document.getElementById('date').value)
+                amount: amount,
+                date: getISODateWithLocalTime(document.getElementById('date').value),
+                tags: Array.from(selectedTags)
             };
             try {
                 const url = editId ? `/expense/edit?id=${editId}` : '/expense';
                 const response = await fetch(url, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
                 });
                 const messageDiv = document.getElementById('formMessage');
@@ -354,6 +561,8 @@
                     messageDiv.textContent = editId ? 'Expense updated successfully!' : 'Expense added successfully!';
                     messageDiv.className = 'form-message success';
                     form.reset();
+                    document.getElementById('selected-tags').innerHTML = '';
+                    selectedTags.clear();
                     delete form.dataset.editId;
                     form.querySelector('button[type="submit"]').textContent = 'Add Expense';
                     await initialize();
@@ -367,7 +576,6 @@
                     messageDiv.textContent = `Error: ${error.error || 'Failed to save expense'}`;
                     messageDiv.className = 'form-message error';
                 }
-                // Clear message after 3 seconds
                 setTimeout(() => {
                     messageDiv.textContent = '';
                     messageDiv.className = 'form-message';
@@ -381,12 +589,13 @@
         });
         document.addEventListener('DOMContentLoaded', initialize);
 
-        // event listener to remove the - from the name input when the user clicks on the input
         document.getElementById('name').addEventListener('click', (e) => {
             if (e.target.value === '-') {
                 e.target.value = '';
             }
         });
+        
+        window.editExpenseByIndex = editExpenseByIndex;
     </script>
 </body>
 </html>

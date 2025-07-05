@@ -23,7 +23,6 @@
 <body>
     <div class="container">
         <header>
-            <!-- <h1 align="center"><img src="/pwa/icon-512.png" alt="ExpenseOwl Logo" height="75" style="vertical-align: middle; margin-right: 10px;">ExpenseOwl</h1> -->
             <div class="nav-bar">
                 <a href="/">
                     <img src="/pwa/icon-512.png" alt="ExpenseOwl Logo" height="85" style="vertical-align: middle; margin-right: 20px;">
@@ -51,11 +50,10 @@
                 <canvas id="categoryPieChart"></canvas>
             </div>
             <div class="legend-box" id="customLegend">
-                <!-- Legend will be populated by JavaScript -->
             </div>
         </div>
 
-        <div id="cashflow-section" class="cashflow-container" style="display: none;">
+        <div id="cashflow-section" class="cashflow-container">
             <div class="cashflow-item income">
                 <div class="cashflow-label">Income</div>
                 <div class="cashflow-value" id="cashflow-income"></div>
@@ -83,34 +81,46 @@
                         <option value="">categories</option>
                     </select>
                 </div>
+
+                <div class="form-group">
+                    <label for="tags-input">Tags</label>
+                    <div id="tags-input-container" class="tags-input-container">
+                        <div id="selected-tags" class="selected-tags"></div>
+                        <input type="text" id="tags-input" placeholder="Add tags...">
+                    </div>
+                    <div id="tags-dropdown" class="tags-dropdown"></div>
+                </div>
                 
                 <div class="form-group">
                     <label for="amount">Amount</label>
-                    <input type="number" id="amount" step="0.01" required>
+                    <input type="number" id="amount" step="0.01" min="0" required>
                 </div>
                 
                 <div class="form-group">
                     <label for="date">Date</label>
                     <input type="date" id="date" required>
                     <script>
-                        // Set today's date as default
                         const today = new Date();
                         const year = today.getFullYear();
-                        const month = String(today.getMonth() + 1).padStart(2, '0'); // January is 0
+                        const month = String(today.getMonth() + 1).padStart(2, '0');
                         const day = String(today.getDate()).padStart(2, '0');
                         const formattedDate = `${year}-${month}-${day}`;
                         document.getElementById('date').value = formattedDate;
                     </script>
                 </div>
                 
+                <div class="form-group form-group-checkbox">
+                    <label for="reportGain">Report Gain</label>
+                    <input type="checkbox" id="reportGain" class="styled-checkbox">
+                </div>
+
                 <button type="submit" class="nav-button">Add Expense</button>
-                <div id="formMessage" class="form-message"></div>
             </form>
             <div id="formMessage" class="form-message"></div>
         </div>
     </div>
     <script>
-        let currencySymbol = '$'; // Default to USD
+        let currentCurrency = 'usd';
         let startDate = 1;
         let pieChart = null;
         let currentDate = new Date();
@@ -122,6 +132,41 @@
             '#FFBE0B', '#FF006E', '#8338EC', '#3A86FF', 
             '#FB5607', '#38B000', '#9B5DE5', '#F15BB5'
         ];
+
+        let allTags = new Set();
+        let selectedTags = new Set();
+
+        const currencyBehaviors = {
+            "usd": { symbol: "$", useComma: false, useDecimals: true },
+            "eur": { symbol: "€", useComma: true, useDecimals: true },
+            "gbp": { symbol: "£", useComma: false, useDecimals: true },
+            "jpy": { symbol: "¥", useComma: false, useDecimals: false },
+            "cny": { symbol: "¥", useComma: false, useDecimals: true },
+            "krw": { symbol: "₩", useComma: false, useDecimals: false },
+            "inr": { symbol: "₹", useComma: false, useDecimals: true },
+            "rub": { symbol: "₽", useComma: true, useDecimals: true },
+            "brl": { symbol: "R$", useComma: true, useDecimals: true },
+            "zar": { symbol: "R", useComma: false, useDecimals: true },
+            "aed": { symbol: "AED", useComma: false, useDecimals: true },
+            "aud": { symbol: "A$", useComma: false, useDecimals: true },
+            "cad": { symbol: "C$", useComma: false, useDecimals: true },
+            "chf": { symbol: "Fr", useComma: false, useDecimals: true },
+            "hkd": { symbol: "HK$", useComma: false, useDecimals: true },
+            "sgd": { symbol: "S$", useComma: false, useDecimals: true },
+            "thb": { symbol: "฿", useComma: false, useDecimals: true },
+            "try": { symbol: "₺", useComma: true, useDecimals: true },
+            "mxn": { symbol: "Mex$", useComma: false, useDecimals: true },
+            "php": { symbol: "₱", useComma: false, useDecimals: true },
+            "pln": { symbol: "zł", useComma: true, useDecimals: true },
+            "sek": { symbol: "kr", useComma: false, useDecimals: true },
+            "nzd": { symbol: "NZ$", useComma: false, useDecimals: true },
+            "dkk": { symbol: "kr.", useComma: true, useDecimals: true },
+            "idr": { symbol: "Rp", useComma: false, useDecimals: true },
+            "ils": { symbol: "₪", useComma: false, useDecimals: true },
+            "vnd": { symbol: "₫", useComma: true, useDecimals: false },
+            "myr": { symbol: "RM", useComma: false, useDecimals: true },
+        };
+
         function assignCategoryColors(categories) {
             categories.forEach((category, index) => {
                 if (!categoryColors[category]) {
@@ -131,20 +176,24 @@
         }
 
         function formatCurrency(amount) {
-            let formattedAmount = new Intl.NumberFormat('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}).format(amount);
-            // Currencies commonly used after the amount
+            const behavior = currencyBehaviors[currentCurrency] || { symbol: '$', useComma: false, useDecimals: true };
+            const options = {
+                minimumFractionDigits: behavior.useDecimals ? 2 : 0,
+                maximumFractionDigits: behavior.useDecimals ? 2 : 0,
+            };
+            let formattedAmount = new Intl.NumberFormat(behavior.useComma ? 'de-DE' : 'en-US', options).format(amount);
             const postfixCurrencies = new Set(['kr', 'kr.', 'Fr', 'zł']);
-            if (postfixCurrencies.has(currencySymbol)) {
-                return `${formattedAmount} ${currencySymbol}`;
+            if (postfixCurrencies.has(behavior.symbol)) {
+                return `${formattedAmount} ${behavior.symbol}`;
             }
-            return `${currencySymbol} ${formattedAmount}`;
+            return `${behavior.symbol} ${formattedAmount}`;
         }
 
         function calculateCategoryBreakdown(expenses) {
             const categoryTotals = {};
             let totalAmount = 0;
             expenses.forEach(exp => {
-                if (exp.category !== "Income" && !disabledCategories.has(exp.category)) {
+                if (exp.amount >= 0 && !disabledCategories.has(exp.category)) {
                     categoryTotals[exp.category] = (categoryTotals[exp.category] || 0) + exp.amount;
                     totalAmount += exp.amount;
                 }
@@ -153,17 +202,21 @@
                 .map(([category, total]) => ({
                     category,
                     total,
-                    percentage: (total / totalAmount) * 100
+                    percentage: totalAmount > 0 ? (total / totalAmount) * 100 : 0
                 }))
                 .sort((a, b) => b.total - a.total);
         }
 
         function calculateIncome(expenses) {
-            return expenses.filter(exp => exp.category === "Income").reduce((sum, exp) => sum + exp.amount, 0);
+            return expenses
+                .filter(exp => exp.amount < 0)
+                .reduce((sum, exp) => sum + Math.abs(exp.amount), 0);
         }
 
         function calculateExpenses(expenses) {
-            return expenses.filter(exp => exp.category !== "Income").reduce((sum, exp) => sum + exp.amount, 0);
+            return expenses
+                .filter(exp => exp.amount >= 0)
+                .reduce((sum, exp) => sum + exp.amount, 0);
         }
 
         function updateChartAndLegend() {
@@ -174,30 +227,26 @@
                 showNoDataMessage();
             } else {
                 createPieChart(categoryData);
-                updateLegend(categoryData);
             }
+            updateLegend(categoryData);
         }
 
         function updateCashflow(expenses) {
             const income = calculateIncome(expenses);
             const expenseTotal = calculateExpenses(expenses);
             const balance = income - expenseTotal;
-            const cashflowSection = document.getElementById('cashflow-section');
-            if (income > 0) {
-                document.getElementById('cashflow-income').textContent = formatCurrency(income);
-                document.getElementById('cashflow-expenses').textContent = formatCurrency(expenseTotal);
-                document.getElementById('cashflow-balance').textContent = formatCurrency(balance);
-                const balanceElement = document.getElementById('cashflow-balance');
-                if (balance >= 0) {
-                    balanceElement.classList.add('positive');
-                    balanceElement.classList.remove('negative');
-                } else {
-                    balanceElement.classList.add('negative');
-                    balanceElement.classList.remove('positive');
-                }
-                cashflowSection.style.display = 'flex';
+            
+            document.getElementById('cashflow-income').textContent = formatCurrency(income);
+            document.getElementById('cashflow-expenses').textContent = formatCurrency(expenseTotal);
+            document.getElementById('cashflow-balance').textContent = formatCurrency(balance);
+            
+            const balanceElement = document.getElementById('cashflow-balance');
+            if (balance >= 0) {
+                balanceElement.classList.add('positive');
+                balanceElement.classList.remove('negative');
             } else {
-                cashflowSection.style.display = 'none';
+                balanceElement.classList.add('negative');
+                balanceElement.classList.remove('positive');
             }
         }
 
@@ -226,7 +275,7 @@
                                 label: (context) => {
                                     const value = context.raw;
                                     const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
-                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
                                     return `${context.label}: ${formatCurrency(value)} (${percentage}%)`;
                                 }
                             }
@@ -238,13 +287,11 @@
 
         function updateLegend(categoryData) {
             const legendContainer = document.getElementById('customLegend');
-            legendContainer.innerHTML = ''; // Clear previous legend
-            // Get unique categories from current month's expenses only
+            legendContainer.innerHTML = '';
             const monthExpenses = getMonthExpenses(allExpenses);
             const currentMonthCategories = [...new Set(monthExpenses
-                .filter(exp => exp.category !== "Income") // Exclude Income from legend
+                .filter(exp => exp.amount >= 0)
                 .map(exp => exp.category))];
-            // Create a map of active category data for easy lookup
             const categoryMap = new Map(categoryData.map(cat => [cat.category, cat]));
             
             currentMonthCategories.sort((a, b) => {
@@ -258,9 +305,9 @@
                 const item = document.createElement('div');
                 item.className = `legend-item${disabledCategories.has(category) ? ' disabled' : ''}`;
                 const color = categoryColors[category];
-                const categoryData = categoryMap.get(category);
-                const percentage = categoryData ? ` (${categoryData.percentage.toFixed(1)}%)` : '';
-                const amount = categoryData ? formatCurrency(categoryData.total) : '';
+                const categoryDataItem = categoryMap.get(category);
+                const percentage = categoryDataItem ? ` (${categoryDataItem.percentage.toFixed(1)}%)` : '';
+                const amount = categoryDataItem ? formatCurrency(categoryDataItem.total) : '';
                 item.innerHTML = `
                     <div class="color-box" style="background-color: ${color}"></div>
                     <div class="legend-text">
@@ -272,12 +319,10 @@
                 legendContainer.appendChild(item);
             });
 
-            // Calculate total of only the enabled categories
             const activeTotalExpenses = monthExpenses
-                .filter(exp => exp.category !== "Income" && !disabledCategories.has(exp.category))
+                .filter(exp => exp.amount >= 0 && !disabledCategories.has(exp.category))
                 .reduce((sum, exp) => sum + exp.amount, 0);
 
-            // Add totals section
             const totalsHtml = `
                 <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -302,25 +347,34 @@
 
         async function initialize() {
             try {
-                // Fetch config response
-                const configResponse = await fetch('/categories');
+                const configResponse = await fetch('/config');
                 if (!configResponse.ok) throw new Error('Failed to fetch configuration');
                 const config = await configResponse.json();
                 const categorySelect = document.getElementById('category');
                 categorySelect.innerHTML = config.categories.map(cat => 
                     `<option value="${cat}">${cat}</option>`
                 ).join('');
-                currencySymbol = config.currency;
+                currentCurrency = config.currency;
                 startDate = config.startDate;
-                // Fetch expenses
+                
                 const response = await fetch('/expenses');
                 if (!response.ok) throw new Error('Failed to fetch data');
-                allExpenses = await response.json();
-                // Get unique categories and assign colors
+                const data = await response.json();
+                allExpenses = Array.isArray(data) ? data : (data && Array.isArray(data.expenses) ? data.expenses : []);
+
+                allTags.clear();
+                allExpenses.forEach(exp => {
+                    if (exp.tags) {
+                        exp.tags.forEach(tag => allTags.add(tag));
+                    }
+                });
+                
                 const uniqueCategories = [...new Set(allExpenses.map(exp => exp.category))];
                 assignCategoryColors(uniqueCategories);
+                
                 updateMonthDisplay();
                 updateChartAndLegend();
+                setupTagInput();
             } catch (error) {
                 console.error('Failed to initialize dashboard:', error);
             }
@@ -330,7 +384,6 @@
         Chart.defaults.borderColor = '#606060';
         Chart.defaults.font.family = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
         
-        // Helpers
         function formatMonth(date) {
             return date.toLocaleDateString('en-US', { 
                 year: 'numeric',
@@ -351,55 +404,47 @@
             return Intl.DateTimeFormat().resolvedOptions().timeZone;
         }
 
-        // Update month display and navigation buttons
         function updateMonthDisplay() {
             document.getElementById('currentMonth').textContent = formatMonth(currentDate);
         }
-        // Get start and end of month
+
         function getMonthBounds(date) {
             const localDate = new Date(date);
-            // If startDate is 1, return generic month bounds
             if (startDate === 1) {
                 const startLocal = new Date(localDate.getFullYear(), localDate.getMonth(), 1);
                 const endLocal = new Date(localDate.getFullYear(), localDate.getMonth() + 1, 0, 23, 59, 59, 999);
-                const start = new Date(startLocal.toISOString());
-                const end = new Date(endLocal.toISOString());
-                return { start, end };
+                return { start: new Date(startLocal.toISOString()), end: new Date(endLocal.toISOString()) };
             }
-            // If startDate is not 1, need to account for variations in month length
+            
             let thisMonthStartDate = startDate;
             let prevMonthStartDate = startDate;
-            let nextMonthStartDate = startDate;
-            // Adjust for variations in current, previous and next months
+            
             const currentMonth = localDate.getMonth();
             const currentYear = localDate.getFullYear();
-            const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate(); // last day of current month
+            const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
             thisMonthStartDate = Math.min(thisMonthStartDate, daysInCurrentMonth);
+            
             const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
             const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
             const daysInPrevMonth = new Date(prevYear, prevMonth + 1, 0).getDate();
             prevMonthStartDate = Math.min(prevMonthStartDate, daysInPrevMonth);
-            const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
-            const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
-            const daysInNextMonth = new Date(nextYear, nextMonth + 1, 0).getDate();
-            nextMonthStartDate = Math.min(nextMonthStartDate, daysInNextMonth);
-            
-            // Return bounds for current period or the previous period
+
             if (localDate.getDate() < thisMonthStartDate) {
                 const startLocal = new Date(prevYear, prevMonth, prevMonthStartDate);
                 const endLocal = new Date(currentYear, currentMonth, thisMonthStartDate - 1, 23, 59, 59, 999);
-                const start = new Date(startLocal.toISOString());
-                const end = new Date(endLocal.toISOString());
-                return { start, end };
+                return { start: new Date(startLocal.toISOString()), end: new Date(endLocal.toISOString()) };
             } else {
+                const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
+                const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
+                const daysInNextMonth = new Date(nextYear, nextMonth + 1, 0).getDate();
+                let nextMonthStartDate = Math.min(startDate, daysInNextMonth);
+
                 const startLocal = new Date(currentYear, currentMonth, thisMonthStartDate);
                 const endLocal = new Date(nextYear, nextMonth, nextMonthStartDate - 1, 23, 59, 59, 999);
-                const start = new Date(startLocal.toISOString());
-                const end = new Date(endLocal.toISOString());
-                return { start, end };
+                return { start: new Date(startLocal.toISOString()), end: new Date(endLocal.toISOString()) };
             }
         }
-        // Filter expenses for current month
+
         function getMonthExpenses(expenses) {
             const { start, end } = getMonthBounds(currentDate);
             return expenses.filter(exp => {
@@ -407,6 +452,7 @@
                 return expDate >= start && expDate <= end;
             }).sort((a, b) => new Date(b.date) - new Date(a.date));
         }
+
         function showNoDataMessage() {
             if (pieChart) {
                 pieChart.destroy();
@@ -419,43 +465,118 @@
             legendContainer.innerHTML = '<div class="no-data">No expenses recorded for this month</div>';
         }
 
-        // Event Listeners
+        function setupTagInput() {
+            const container = document.getElementById('tags-input-container');
+            const input = document.getElementById('tags-input');
+            const dropdown = document.getElementById('tags-dropdown');
+            const selectedContainer = document.getElementById('selected-tags');
+            const formGroup = container.parentElement;
+
+            const addTag = (tag) => {
+                tag = tag.trim();
+                if (tag && !selectedTags.has(tag)) {
+                    selectedTags.add(tag);
+                    const pill = document.createElement('div');
+                    pill.className = 'tag-pill';
+                    pill.textContent = tag;
+                    const removeBtn = document.createElement('span');
+                    removeBtn.className = 'remove-tag';
+                    removeBtn.textContent = '×';
+                    removeBtn.onclick = () => {
+                        selectedTags.delete(tag);
+                        pill.remove();
+                    };
+                    pill.appendChild(removeBtn);
+                    selectedContainer.appendChild(pill);
+                }
+                input.value = '';
+                dropdown.style.display = 'none';
+            };
+
+            input.addEventListener('focus', () => {
+                dropdown.innerHTML = '';
+                const availableTags = [...allTags].filter(tag => !selectedTags.has(tag));
+                if (availableTags.length > 0) {
+                    availableTags.forEach(tag => {
+                        const item = document.createElement('div');
+                        item.textContent = tag;
+                        item.onclick = () => addTag(tag);
+                        dropdown.appendChild(item);
+                    });
+                    dropdown.style.display = 'block';
+                }
+            });
+
+            input.addEventListener('input', () => {
+                const value = input.value.trim().toLowerCase();
+                dropdown.innerHTML = '';
+                const filteredTags = [...allTags].filter(tag => tag.toLowerCase().includes(value) && !selectedTags.has(tag));
+                
+                if (value && ![...allTags].map(t => t.toLowerCase()).includes(value)) {
+                    const newItem = document.createElement('div');
+                    newItem.textContent = `+ Create "${input.value.trim()}"`;
+                    newItem.className = 'new-tag';
+                    newItem.onclick = () => addTag(input.value.trim());
+                    dropdown.appendChild(newItem);
+                }
+
+                filteredTags.forEach(tag => {
+                    const item = document.createElement('div');
+                    item.textContent = tag;
+                    item.onclick = () => addTag(tag);
+                    dropdown.appendChild(item);
+                });
+                
+                dropdown.style.display = dropdown.children.length > 0 ? 'block' : 'none';
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (input.value.trim()) {
+                        addTag(input.value.trim());
+                    }
+                }
+            });
+
+            container.addEventListener('click', () => input.focus());
+            document.addEventListener('click', (e) => {
+                if (!formGroup.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                }
+            });
+        }
+
         document.getElementById('prevMonth').addEventListener('click', () => {
-            currentDate = new Date(
-                currentDate.getFullYear(),
-                currentDate.getMonth() - 1,
-                1,
-                currentDate.getHours(),
-                currentDate.getMinutes()
-            );
+            currentDate.setMonth(currentDate.getMonth() - 1);
             updateMonthDisplay();
             updateChartAndLegend();
         });
+
         document.getElementById('nextMonth').addEventListener('click', () => {
-            currentDate = new Date(
-                currentDate.getFullYear(),
-                currentDate.getMonth() + 1,
-                1,
-                currentDate.getHours(),
-                currentDate.getMinutes()
-            );
+            currentDate.setMonth(currentDate.getMonth() + 1);
             updateMonthDisplay();
             updateChartAndLegend();
         });
+
         document.getElementById('expenseForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const isGain = document.getElementById('reportGain').checked;
+            let amount = parseFloat(document.getElementById('amount').value);
+            if (isGain) {
+                amount *= -1;
+            }
             const formData = {
                 name: document.getElementById('name').value,
                 category: document.getElementById('category').value,
-                amount: parseFloat(document.getElementById('amount').value),
-                date: getISODateWithLocalTime(document.getElementById('date').value)
+                amount: amount,
+                date: getISODateWithLocalTime(document.getElementById('date').value),
+                tags: Array.from(selectedTags)
             };
             try {
                 const response = await fetch('/expense', {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(formData)
                 });
                 const messageDiv = document.getElementById('formMessage');
@@ -463,6 +584,8 @@
                     messageDiv.textContent = 'Expense added successfully!';
                     messageDiv.className = 'form-message success';
                     document.getElementById('expenseForm').reset();
+                    document.getElementById('selected-tags').innerHTML = '';
+                    selectedTags.clear();
                     await initialize();
                     const today = new Date();
                     const year = today.getFullYear();
@@ -474,7 +597,6 @@
                     messageDiv.textContent = `Error: ${error.error || 'Failed to add expense'}`;
                     messageDiv.className = 'form-message error';
                 }
-                // Clear message after 3 seconds
                 setTimeout(() => {
                     messageDiv.textContent = '';
                     messageDiv.className = 'form-message';
@@ -488,7 +610,6 @@
         });
         document.addEventListener('DOMContentLoaded', initialize);
 
-        // event listener to remove the - from the name input when the user clicks on the input
         document.getElementById('name').addEventListener('click', (e) => {
             if (e.target.value === '-') {
                 e.target.value = '';

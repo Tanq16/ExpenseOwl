@@ -10,7 +10,6 @@
 <body>
     <div class="container">
         <header>
-            <!-- <h1 align="center">ExpenseOwl</h1> -->
             <div class="nav-bar">
                 <a href="/">
                     <img src="/pwa/icon-512.png" alt="ExpenseOwl Logo" height="85" style="vertical-align: middle; margin-right: 20px;">
@@ -27,12 +26,18 @@
             </div>
         </header>
 
-        <!-- Categories Section -->
+        <div class="info-field">
+            Version: <a id="version-link" href="https://github.com/tanq16/expenseowl/releases" target="_blank" rel="noopener noreferrer">dev</a>
+            <span class="separator">|</span>
+            <a href="https://github.com/tanq16/expenseowl/blob/main/README.md" target="_blank" rel="noopener noreferrer">Documentation</a>
+            <span class="separator">|</span>
+            <a href="https://github.com/tanq16/expenseowl" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </div>
+
         <div class="form-container">
             <h2 align="center">Category Settings</h2>
             <div id="categories-manager">
                 <div id="categories-list" class="categories-list">
-                    <!-- Categories will be populated here -->
                 </div>
                 <div class="category-input-container">
                     <input type="text" id="newCategory" placeholder="Add new category">
@@ -44,19 +49,16 @@
         </div>
 
         <div class="settings-container">
-            <!-- Currency Section -->
             <div class="form-container half-width">
                 <h2 align="center">Currency Settings</h2>
                 <div class="currency-selector">
                     <select id="currencySelect">
-                        <!-- Currencies will be populated here -->
                     </select>
                     <button id="saveCurrency" class="nav-button">Save</button>
                 </div>
                 <div id="currencyMessage" class="form-message"></div>
             </div>
             
-            <!-- Start date section -->
             <div class="form-container half-width">
                 <h2 align="center">Start Date Settings</h2>
                 <div class="start-date-manager">
@@ -66,69 +68,177 @@
                 <div id="startDateMessage" class="form-message"></div>
             </div>
         </div>
+        
+        <div class="form-container">
+            <h2 align="center">Recurring Expenses</h2>
+            <form id="recurringExpenseForm" class="expense-form recurring-expense-form">
+                <div class="form-group">
+                    <label for="recurringName">Name</label>
+                    <input type="text" id="recurringName" required>
+                </div>
+                <div class="form-group">
+                    <label for="recurringAmount">Amount</label>
+                    <input type="number" id="recurringAmount" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="recurringCategory">Category</label>
+                    <select id="recurringCategory" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="tags-input">Tags</label>
+                    <div class="tags-input-container">
+                        <div id="selected-tags" class="selected-tags"></div>
+                        <input type="text" id="tags-input" placeholder="Add tags...">
+                    </div>
+                    <div id="tags-dropdown" class="tags-dropdown"></div>
+                </div>
+                <div class="form-group">
+                    <label for="recurringInterval">Interval</label>
+                    <select id="recurringInterval" required>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="recurringStartDate">Start Date</label>
+                    <input type="date" id="recurringStartDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="recurringOccurrences">Occurrences (0 for indefinite)</label>
+                    <input type="number" id="recurringOccurrences" min="0" value="0" required>
+                </div>
+                <div class="form-group form-group-checkbox">
+                    <label for="recurringReportGain">Report Gain</label>
+                    <input type="checkbox" id="recurringReportGain" class="styled-checkbox">
+                </div>
+                <button type="submit" class="nav-button">Add Recurring Expense</button>
+            </form>
+            <div id="recurringExpenseMessage" class="form-message"></div>
+            <h3 align="center" style="margin-top: 2rem;">Existing Recurring Expenses</h3>
+            <div id="recurring-expenses-list">
+            </div>
+        </div>
 
-        <!-- Import/Export Section -->
         <div class="form-container">
             <h2 align="center">Import/Export Data</h2>
             <div class="export-buttons">
-                <a href="/export/csv" class="nav-button" download="expenses.csv">
-                    <i class="fa-solid fa-file-csv"></i> Export CSV
-                </a>
-                <a href="/export/json" class="nav-button" download="expenses.json">
-                    <i class="fa-solid fa-file-code"></i> Export JSON
-                </a>
-                <label for="csvFile" class="nav-button">
-                    <i class="fa-solid fa-file-csv"></i> Import CSV
-                </label>
-                <input type="file" id="csvFile" accept=".csv" style="display: none;">
-                <label for="jsonFile" class="nav-button">
-                    <i class="fa-solid fa-file-code"></i> Import JSON
-                </label>
-                <input type="file" id="jsonFile" accept=".json" style="display: none;">
             </div>
             <div id="importMessage" class="form-message"></div>
             <div id="importSummary" class="import-summary" style="display: none;"></div>
         </div>
     </div>
 
+    <div id="deleteRecurringModal" class="modal">
+        <div class="modal-content">
+            <h3>Delete Recurring Expense</h3>
+            <p>Do you want to delete all instances of this expense, or only future ones?</p>
+            <div class="modal-buttons">
+                <button class="modal-button" onclick="closeRecurringDeleteModal()">Cancel</button>
+                <button class="modal-button" onclick="confirmRecurringDelete(false)">Delete Future</button>
+                <button class="modal-button confirm" onclick="confirmRecurringDelete(true)">Delete All</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="editRecurringModal" class="modal">
+        <div class="modal-content">
+            <h3>Edit Recurring Expense</h3>
+            <form id="editRecurringExpenseForm" class="expense-form recurring-expense-form">
+                 <div class="form-group">
+                    <label for="editRecurringName">Name</label>
+                    <input type="text" id="editRecurringName" required>
+                </div>
+                <div class="form-group">
+                    <label for="editRecurringAmount">Amount</label>
+                    <input type="number" id="editRecurringAmount" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label for="editRecurringCategory">Category</label>
+                    <select id="editRecurringCategory" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="edit-tags-input">Tags</label>
+                    <div class="tags-input-container">
+                        <div id="edit-selected-tags" class="selected-tags"></div>
+                        <input type="text" id="edit-tags-input" placeholder="Add tags...">
+                    </div>
+                    <div id="edit-tags-dropdown" class="tags-dropdown"></div>
+                </div>
+                <div class="form-group">
+                    <label for="editRecurringInterval">Interval</label>
+                    <select id="editRecurringInterval" required>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="editRecurringStartDate">Start Date</label>
+                    <input type="date" id="editRecurringStartDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="editRecurringOccurrences">Occurrences (0 for indefinite)</label>
+                    <input type="number" id="editRecurringOccurrences" min="0" value="0" required>
+                </div>
+                <div class="form-group form-group-checkbox">
+                    <label for="editRecurringReportGain">Report Gain</label>
+                    <input type="checkbox" id="editRecurringReportGain" class="styled-checkbox">
+                </div>
+            </form>
+            <div class="modal-buttons">
+                <button class="modal-button" onclick="closeRecurringEditModal()">Cancel</button>
+                <button class="modal-button" onclick="confirmRecurringUpdate(false)">Update Future</button>
+                <button class="modal-button confirm" onclick="confirmRecurringUpdate(true)">Update All</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        const currencySymbols = {
-            "usd": "$",    // US Dollar
-            "eur": "€",    // Euro
-            "gbp": "£",    // British Pound
-            "jpy": "¥",    // Japanese Yen
-            "cny": "¥",    // Chinese Yuan
-            "krw": "₩",    // Korean Won
-            "inr": "₹",    // Indian Rupee
-            "rub": "₽",    // Russian Ruble
-            "brl": "R$",   // Brazilian Real
-            "zar": "R",    // South African Rand
-            "aed": "AED",  // UAE Dirham
-            "aud": "A$",   // Australian Dollar
-            "cad": "C$",   // Canadian Dollar
-            "chf": "Fr",   // Swiss Franc
-            "hkd": "HK$",  // Hong Kong Dollar
-            "sgd": "S$",   // Singapore Dollar
-            "thb": "฿",    // Thai Baht
-            "try": "₺",    // Turkish Lira
-            "mxn": "Mex$", // Mexican Peso
-            "php": "₱",    // Philippine Peso
-            "pln": "zł",   // Polish Złoty
-            "sek": "kr",   // Swedish Krona
-            "nzd": "NZ$",  // New Zealand Dollar
-            "dkk": "kr.",  // Danish Krone
-            "idr": "Rp",   // Indonesian Rupiah
-            "ils": "₪",    // Israeli New Shekel
-            "vnd": "₫",    // Vietnamese Dong
-            "myr": "RM",   // Malaysian Ringgit
+        const currencyBehaviors = {
+            "usd": { symbol: "$", useComma: false, useDecimals: true },
+            "eur": { symbol: "€", useComma: true, useDecimals: true },
+            "gbp": { symbol: "£", useComma: false, useDecimals: true },
+            "jpy": { symbol: "¥", useComma: false, useDecimals: false },
+            "cny": { symbol: "¥", useComma: false, useDecimals: true },
+            "krw": { symbol: "₩", useComma: false, useDecimals: false },
+            "inr": { symbol: "₹", useComma: false, useDecimals: true },
+            "rub": { symbol: "₽", useComma: true, useDecimals: true },
+            "brl": { symbol: "R$", useComma: true, useDecimals: true },
+            "zar": { symbol: "R", useComma: false, useDecimals: true },
+            "aed": { symbol: "AED", useComma: false, useDecimals: true },
+            "aud": { symbol: "A$", useComma: false, useDecimals: true },
+            "cad": { symbol: "C$", useComma: false, useDecimals: true },
+            "chf": { symbol: "Fr", useComma: false, useDecimals: true },
+            "hkd": { symbol: "HK$", useComma: false, useDecimals: true },
+            "sgd": { symbol: "S$", useComma: false, useDecimals: true },
+            "thb": { symbol: "฿", useComma: false, useDecimals: true },
+            "try": { symbol: "₺", useComma: true, useDecimals: true },
+            "mxn": { symbol: "Mex$", useComma: false, useDecimals: true },
+            "php": { symbol: "₱", useComma: false, useDecimals: true },
+            "pln": { symbol: "zł", useComma: true, useDecimals: true },
+            "sek": { symbol: "kr", useComma: false, useDecimals: true },
+            "nzd": { symbol: "NZ$", useComma: false, useDecimals: true },
+            "dkk": { symbol: "kr.", useComma: true, useDecimals: true },
+            "idr": { symbol: "Rp", useComma: false, useDecimals: true },
+            "ils": { symbol: "₪", useComma: false, useDecimals: true },
+            "vnd": { symbol: "₫", useComma: true, useDecimals: false },
+            "myr": { symbol: "RM", useComma: false, useDecimals: true },
         };
 
         let categories = [];
-        let currentCurrency = "";
+        let allTags = new Set();
+        let addFormSelectedTags = new Set();
+        let editFormSelectedTags = new Set();
+        let currentCurrency = "usd";
         let currentStartDate = 1;
         let draggedItem = null;
+        let recurringExpenses = [];
+        let recurringExpenseToDelete = null;
+        let recurringExpenseToEdit = null;
 
-        // Functions to show message
         function showMessage(elementId, message, isSuccess) {
             const messageDiv = document.getElementById(elementId);
             messageDiv.textContent = message;
@@ -139,7 +249,7 @@
             }, 3000);
         }
 
-        // Category functions
+        // --- Category Management ---
         function renderCategories() {
             const list = document.getElementById('categories-list');
             list.innerHTML = '';
@@ -157,19 +267,15 @@
                         <i class="fa-solid fa-times"></i>
                     </button>
                 `;
-                
-                // Add drag event listeners
                 item.addEventListener('dragstart', handleDragStart);
                 item.addEventListener('dragover', handleDragOver);
                 item.addEventListener('dragleave', handleDragLeave);
                 item.addEventListener('dragend', handleDragEnd);
                 item.addEventListener('drop', handleDrop);
-                
                 list.appendChild(item);
             });
         }
 
-        // Drag and drop handlers
         function handleDragStart(e) {
             this.classList.add('dragging');
             draggedItem = this;
@@ -183,13 +289,11 @@
             e.dataTransfer.dropEffect = 'move';
             this.classList.add('drag-over');
             if (this === draggedItem) return false;
-            // Determine it should go before or after this item
             const rect = this.getBoundingClientRect();
             const clientY = e.clientY;
             const threshold = rect.top + (rect.height / 2);
             const isBefore = clientY < threshold;
             removePlaceholders();
-            // Add a placeholder before or after this item
             const placeholder = document.createElement('div');
             placeholder.className = 'placeholder';
             if (isBefore) {
@@ -200,51 +304,28 @@
             return false;
         }
 
-        function handleDragLeave(e) {
-            this.classList.remove('drag-over');
-        }
-
-        function handleDragEnd(e) {
+        function handleDragLeave() { this.classList.remove('drag-over'); }
+        function handleDragEnd() {
             this.classList.remove('dragging');
-            document.querySelectorAll('.category-item').forEach(item => {
-                item.classList.remove('drag-over');
-            });
+            document.querySelectorAll('.category-item, .tag-item').forEach(item => item.classList.remove('drag-over'));
             removePlaceholders();
         }
-        
-        function removePlaceholders() {
-            document.querySelectorAll('.placeholder').forEach(placeholder => {
-                placeholder.remove();
-            });
-        }
+        function removePlaceholders() { document.querySelectorAll('.placeholder').forEach(p => p.remove()); }
 
         function handleDrop(e) {
             e.stopPropagation();
             e.preventDefault();
             removePlaceholders();
-            // Don't do anything if dropping on the same item
             if (draggedItem !== this) {
+                const fromIndex = parseInt(draggedItem.dataset.index, 10);
+                let toIndex = parseInt(this.dataset.index, 10);
                 const rect = this.getBoundingClientRect();
-                const clientY = e.clientY;
-                const threshold = rect.top + (rect.height / 2);
-                const isBefore = clientY < threshold;
-                
-                const fromIndex = parseInt(draggedItem.dataset.index);
-                let toIndex = parseInt(this.dataset.index);
-                
-                if (!isBefore && fromIndex < toIndex) {
-                    toIndex = toIndex; // Insert after
-                } else if (isBefore && fromIndex > toIndex) {
-                    toIndex = toIndex; // Insert before
-                } else if (isBefore && fromIndex < toIndex) {
-                    toIndex = toIndex - 1; // Adjust for removal of dragged item
-                } else if (!isBefore && fromIndex > toIndex) {
-                    toIndex = toIndex + 1; // Insert after, adjust for position
-                }
-                
-                const movedItem = categories[fromIndex];
-                categories.splice(fromIndex, 1);
-                categories.splice(toIndex, 0, movedItem);
+                const isBefore = e.clientY < rect.top + rect.height / 2;
+                if (!isBefore) toIndex++;
+                if (fromIndex < toIndex) toIndex--;
+                const list = categories;
+                const movedItem = list.splice(fromIndex, 1)[0];
+                list.splice(toIndex, 0, movedItem);
                 renderCategories();
             }
             return false;
@@ -275,50 +356,126 @@
             try {
                 const response = await fetch('/categories/edit', {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(categories)
                 });   
-                if (response.ok) {
-                    showMessage('categoriesMessage', 'Categories saved successfully', true);
-                } else {
-                    showMessage('categoriesMessage', 'Failed to save categories', false);
-                }
+                showMessage('categoriesMessage', response.ok ? 'Categories saved successfully' : 'Failed to save categories', response.ok);
             } catch (error) {
                 console.error('Error saving categories:', error);
                 showMessage('categoriesMessage', 'Error saving categories', false);
             }
         }
+        
+        // --- Tag Input Component ---
+        function createTagInput(inputId, selectedContainerId, dropdownId, selectedTagsSet) {
+            const input = document.getElementById(inputId);
+            const selectedContainer = document.getElementById(selectedContainerId);
+            const dropdown = document.getElementById(dropdownId);
 
-        // Currency functions
+            const renderSelected = () => {
+                selectedContainer.innerHTML = '';
+                selectedTagsSet.forEach(tag => {
+                    const pill = document.createElement('div');
+                    pill.className = 'tag-pill';
+                    pill.textContent = tag;
+                    const removeBtn = document.createElement('span');
+                    removeBtn.className = 'remove-tag';
+                    removeBtn.textContent = '×';
+                    removeBtn.onclick = (e) => {
+                        e.stopPropagation();
+                        selectedTagsSet.delete(tag);
+                        renderSelected();
+                    };
+                    pill.appendChild(removeBtn);
+                    selectedContainer.appendChild(pill);
+                });
+            };
+
+            const addTag = (tag) => {
+                tag = tag.trim();
+                if (tag) {
+                    selectedTagsSet.add(tag);
+                    renderSelected();
+                }
+                input.value = '';
+                dropdown.style.display = 'none';
+            };
+            
+            input.addEventListener('focus', () => {
+                const value = input.value.trim().toLowerCase();
+                dropdown.innerHTML = '';
+                const availableTags = [...allTags].filter(tag => !selectedTagsSet.has(tag));
+                if (availableTags.length > 0) {
+                    availableTags.forEach(tag => {
+                        const item = document.createElement('div');
+                        item.textContent = tag;
+                        item.onclick = () => addTag(tag);
+                        dropdown.appendChild(item);
+                    });
+                    dropdown.style.display = 'block';
+                }
+            });
+
+            input.addEventListener('input', () => {
+                const value = input.value.trim().toLowerCase();
+                dropdown.innerHTML = '';
+                const filteredTags = [...allTags].filter(tag => tag.toLowerCase().includes(value) && !selectedTagsSet.has(tag));
+
+                if (value && ![...allTags].map(t => t.toLowerCase()).includes(value)) {
+                    const newItem = document.createElement('div');
+                    newItem.textContent = `+ Create "${input.value.trim()}"`;
+                    newItem.className = 'new-tag';
+                    newItem.onclick = () => addTag(input.value.trim());
+                    dropdown.appendChild(newItem);
+                }
+                
+                filteredTags.forEach(tag => {
+                    const item = document.createElement('div');
+                    item.textContent = tag;
+                    item.onclick = () => addTag(tag);
+                    dropdown.appendChild(item);
+                });
+                
+                dropdown.style.display = dropdown.children.length > 0 ? 'block' : 'none';
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (input.value.trim()) addTag(input.value.trim());
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                const container = input.closest('.tags-input-container');
+                if (container && !container.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                }
+            });
+            return { renderSelected };
+        }
+
+        // --- Currency & Start Date ---
         function populateCurrencySelect() {
             const select = document.getElementById('currencySelect');
-            select.innerHTML = '';
-            for (const [code, symbol] of Object.entries(currencySymbols)) {
-                const option = document.createElement('option');
-                option.value = code;
-                option.textContent = `${code.toUpperCase()} (${symbol})`;
-                if (symbol === currentCurrency) {
-                    option.selected = true;
-                }
-                select.appendChild(option);
-            }
+            select.innerHTML = Object.keys(currencyBehaviors).map(code => 
+                `<option value="${code}" ${code === currentCurrency ? 'selected' : ''}>
+                    ${code.toUpperCase()} (${currencyBehaviors[code].symbol})
+                </option>`
+            ).join('');
         }
         
         async function saveCurrency() {
             const currencyCode = document.getElementById('currencySelect').value;
             try {
-                const response = await fetch('/currency', {
+                const response = await fetch('/currency/edit', {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(currencyCode)
                 });
                 if (response.ok) {
                     showMessage('currencyMessage', 'Currency saved successfully', true);
-                    currentCurrency = currencySymbols[currencyCode];
+                    currentCurrency = currencyCode;
                 } else {
                     showMessage('currencyMessage', 'Failed to save currency', false);
                 }
@@ -328,135 +485,296 @@
             }
         }
 
-        // Start date functions
         function populateStartDateInput() {
-            const input = document.getElementById("startDate");
-            input.value = currentStartDate;
+            document.getElementById("startDate").value = currentStartDate;
         }
 
         async function saveStartDate() {
-            const startDate = document.getElementById("startDate").value;
+            const startDateValue = document.getElementById("startDate").value;
             try {
-                const response = await fetch('/startdate', {
+                const response = await fetch('/startdate/edit', {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: startDate
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(parseInt(startDateValue, 10))
                 });
-                if (response.ok) {
-                    showMessage('startDateMessage', 'Start date saved successfully', true);
-                } else {
-                    showMessage('startDateMessage', 'Failed to save start date', false);
-                }
+                showMessage('startDateMessage', response.ok ? 'Start date saved successfully' : 'Failed to save start date', response.ok);
             } catch (error) {
                 console.error('Error saving start date:', error);
                 showMessage('startDateMessage', 'Error saving start date', false);
             }
         }
 
-        // Initialize the page
+        // --- Recurring Expenses ---
+        function formatCurrency(amount) {
+            const behavior = currencyBehaviors[currentCurrency] || { symbol: '$', useComma: false, useDecimals: true };
+            const isNegative = amount < 0;
+            const absAmount = Math.abs(amount);
+            const options = {
+                minimumFractionDigits: behavior.useDecimals ? 2 : 0,
+                maximumFractionDigits: behavior.useDecimals ? 2 : 0,
+            };
+            let formattedAmount = new Intl.NumberFormat(behavior.useComma ? 'de-DE' : 'en-US', options).format(absAmount);
+            const postfixCurrencies = new Set(['kr', 'kr.', 'Fr', 'zł']);
+            let result = postfixCurrencies.has(behavior.symbol) ? `${formattedAmount} ${behavior.symbol}` : `${behavior.symbol}${formattedAmount}`;
+            return isNegative ? `-${result}` : result;
+        }
+        
+        async function fetchAndRenderRecurringExpenses() {
+            try {
+                const response = await fetch('/recurring-expenses');
+                if (!response.ok) throw new Error('Failed to fetch recurring expenses');
+                recurringExpenses = await response.json() || [];
+                renderRecurringExpenses(recurringExpenses);
+            } catch (error) {
+                console.error('Error fetching recurring expenses:', error);
+                document.getElementById('recurring-expenses-list').innerHTML = '<p>Error loading recurring expenses.</p>';
+            }
+        }
+
+        function findNextOccurrence(r) {
+            let nextDate = new Date(r.startDate);
+            const today = new Date();
+            if (nextDate >= today) return nextDate.toLocaleDateString();
+
+            if (r.occurrences > 0) {
+                let occurrencesCount = 0;
+                while (nextDate < today) {
+                    occurrencesCount++;
+                    if (occurrencesCount >= r.occurrences) return 'Finished';
+                    switch(r.interval) {
+                        case 'daily': nextDate.setDate(nextDate.getDate() + 1); break;
+                        case 'weekly': nextDate.setDate(nextDate.getDate() + 7); break;
+                        case 'monthly': nextDate.setMonth(nextDate.getMonth() + 1); break;
+                        case 'yearly': nextDate.setFullYear(nextDate.getFullYear() + 1); break;
+                    }
+                }
+                return nextDate.toLocaleDateString();
+            } else { // Indefinite
+                 while (nextDate < today) {
+                    switch(r.interval) {
+                        case 'daily': nextDate.setDate(nextDate.getDate() + 1); break;
+                        case 'weekly': nextDate.setDate(nextDate.getDate() + 7); break;
+                        case 'monthly': nextDate.setMonth(nextDate.getMonth() + 1); break;
+                        case 'yearly': nextDate.setFullYear(nextDate.getFullYear() + 1); break;
+                    }
+                }
+                return nextDate.toLocaleDateString();
+            }
+        }
+
+        function renderRecurringExpenses(recurring) {
+            const list = document.getElementById('recurring-expenses-list');
+            if (!recurring || recurring.length === 0) {
+                list.innerHTML = '<p>No recurring expenses found.</p>';
+                return;
+            }
+            list.innerHTML = `
+                <table class="expense-table">
+                    <thead><tr><th>Name</th><th>Amount</th><th>Category</th><th>Interval</th><th>Next Occurrence</th><th></th></tr></thead>
+                    <tbody>
+                        ${recurring.map(r => `
+                            <tr>
+                                <td>${r.name}</td>
+                                <td>${formatCurrency(r.amount)}</td>
+                                <td>${r.category}</td>
+                                <td>${r.interval.charAt(0).toUpperCase() + r.interval.slice(1)}</td>
+                                <td>${findNextOccurrence(r)}</td>
+                                <td>
+                                    <button class="edit-button" onclick="showRecurringEditModal('${r.id}')"><i class="fa-solid fa-pen-to-square"></i></button>
+                                    <button class="delete-button" onclick="showRecurringDeleteModal('${r.id}')"><i class="fa-solid fa-trash-can"></i></button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>`;
+        }
+
+        function showRecurringDeleteModal(id) {
+            recurringExpenseToDelete = id;
+            document.getElementById('deleteRecurringModal').classList.add('active');
+        }
+
+        function closeRecurringDeleteModal() {
+            recurringExpenseToDelete = null;
+            document.getElementById('deleteRecurringModal').classList.remove('active');
+        }
+
+        async function confirmRecurringDelete(removeAll) {
+            if (!recurringExpenseToDelete) return;
+            try {
+                const response = await fetch(`/recurring-expense/delete?id=${recurringExpenseToDelete}&removeAll=${removeAll}`, { method: 'DELETE' });
+                if (!response.ok) throw new Error('Failed to delete recurring expense');
+                showMessage('recurringExpenseMessage', 'Recurring expense deleted successfully', true);
+                fetchAndRenderRecurringExpenses();
+            } catch (error) {
+                console.error('Error deleting recurring expense:', error);
+                showMessage('recurringExpenseMessage', 'Failed to delete recurring expense', false);
+            } finally {
+                closeRecurringDeleteModal();
+            }
+        }
+        
+        function showRecurringEditModal(id) {
+            recurringExpenseToEdit = recurringExpenses.find(r => r.id === id);
+            if (!recurringExpenseToEdit) return;
+            
+            document.getElementById('editRecurringName').value = recurringExpenseToEdit.name;
+            document.getElementById('editRecurringAmount').value = Math.abs(recurringExpenseToEdit.amount);
+            document.getElementById('editRecurringReportGain').checked = recurringExpenseToEdit.amount < 0;
+            document.getElementById('editRecurringCategory').value = recurringExpenseToEdit.category;
+            document.getElementById('editRecurringInterval').value = recurringExpenseToEdit.interval;
+            document.getElementById('editRecurringStartDate').value = new Date(recurringExpenseToEdit.startDate).toISOString().split('T')[0];
+            document.getElementById('editRecurringOccurrences').value = recurringExpenseToEdit.occurrences;
+            
+            editFormSelectedTags = new Set(recurringExpenseToEdit.tags || []);
+            createTagInput('edit-tags-input', 'edit-selected-tags', 'edit-tags-dropdown', editFormSelectedTags).renderSelected();
+
+            document.getElementById('editRecurringModal').classList.add('active');
+        }
+        
+        function closeRecurringEditModal() {
+            recurringExpenseToEdit = null;
+            document.getElementById('editRecurringModal').classList.remove('active');
+        }
+
+        async function confirmRecurringUpdate(updateAll) {
+            if (!recurringExpenseToEdit) return;
+
+            let amount = parseFloat(document.getElementById('editRecurringAmount').value);
+            if (document.getElementById('editRecurringReportGain').checked) {
+                amount *= -1;
+            }
+
+            const updatedData = {
+                ...recurringExpenseToEdit,
+                name: document.getElementById('editRecurringName').value,
+                amount: amount,
+                category: document.getElementById('editRecurringCategory').value,
+                tags: Array.from(editFormSelectedTags),
+                interval: document.getElementById('editRecurringInterval').value,
+                startDate: new Date(document.getElementById('editRecurringStartDate').value).toISOString(),
+                occurrences: parseInt(document.getElementById('editRecurringOccurrences').value, 10)
+            };
+            
+            try {
+                const response = await fetch(`/recurring-expense/edit?id=${recurringExpenseToEdit.id}&updateAll=${updateAll}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedData)
+                });
+                if (!response.ok) throw new Error('Failed to update recurring expense');
+                showMessage('recurringExpenseMessage', 'Recurring expense updated successfully', true);
+                fetchAndRenderRecurringExpenses();
+            } catch(error) {
+                console.error('Error updating recurring expense:', error);
+                showMessage('recurringExpenseMessage', 'Failed to update recurring expense', false);
+            } finally {
+                closeRecurringEditModal();
+            }
+        }
+
+
+        // --- Initialization ---
         async function initialize() {
             try {
-                const response = await fetch('/categories');
-                if (!response.ok) {
-                    throw new Error('Failed to fetch configuration');
-                }
-                const config = await response.json();
+                const [configResponse, expensesResponse, recurringExpensesResponse] = await Promise.all([
+                    fetch('/config'),
+                    fetch('/expenses'),
+                    fetch('/recurring-expenses')
+                ]);
+
+                if (!configResponse.ok) throw new Error('Failed to fetch configuration');
+                const config = await configResponse.json();
+                
+                if (!expensesResponse.ok) throw new Error('Failed to fetch expenses');
+                const expenses = await expensesResponse.json();
+
+                if (!recurringExpensesResponse.ok) throw new Error('Failed to fetch recurring expenses');
+                recurringExpenses = await recurringExpensesResponse.json() || [];
+
                 categories = [...config.categories];
                 currentCurrency = config.currency;
                 currentStartDate = config.startDate;
-                let currentCurrencyCode = "usd"; // Default
-                for (const [code, symbol] of Object.entries(currencySymbols)) {
-                    if (symbol === currentCurrency) {
-                        currentCurrencyCode = code;
-                        break;
-                    }
-                }
+
+                allTags.clear();
+                (expenses || []).forEach(exp => (exp.tags || []).forEach(tag => allTags.add(tag)));
+                (recurringExpenses || []).forEach(exp => (exp.tags || []).forEach(tag => allTags.add(tag)));
+                
                 renderCategories();
                 populateCurrencySelect();
                 populateStartDateInput();
+                document.getElementById('recurringCategory').innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+                document.getElementById('editRecurringCategory').innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+                renderRecurringExpenses(recurringExpenses);
+
+                createTagInput('tags-input', 'selected-tags', 'tags-dropdown', addFormSelectedTags);
+
+                fetch('/version').then(r => r.ok ? r.text() : 'dev').then(version => {
+                    const link = document.getElementById('version-link');
+                    link.textContent = version;
+                    if (version !== 'dev') link.href = `https://github.com/tanq16/expenseowl/releases/tag/${version}`;
+                }).catch(e => console.error('Failed to fetch version:', e));
+
             } catch (error) {
                 console.error('Failed to initialize settings:', error);
                 showMessage('categoriesMessage', 'Failed to load settings', false);
             }
         }
 
-        // Import functions
-        async function handleFileUpload(e) {
-            const fileInput = e.target;
-            const file = fileInput.files[0];
-            if (!file) return;
-            const fileType = fileInput.id === 'csvFile' ? 'csv' : 'json';
-            const formData = new FormData();
-            formData.append('file', file);
-
-            try {
-                // Show loading message
-                const importMessageDiv = document.getElementById('importMessage');
-                importMessageDiv.textContent = `Uploading ${fileType.toUpperCase()} file...`;
-                importMessageDiv.className = 'form-message';
-                const response = await fetch(`/import/${fileType}`, {
-                    method: 'POST',
-                    body: formData
-                });
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || `Failed to import ${fileType.toUpperCase()} file`);
-                }
-
-                const result = await response.json();
-                importMessageDiv.textContent = `Successfully imported ${result.imported} expenses!`;
-                importMessageDiv.className = 'form-message success';
-                const summaryDiv = document.getElementById('importSummary');
-                summaryDiv.style.display = 'block';
-                summaryDiv.innerHTML = `
-                    <div><strong>Total processed:</strong> ${result.total_processed}</div>
-                    <div><strong>Successfully imported:</strong> ${result.imported}</div>
-                    <div><strong>Skipped:</strong> ${result.skipped}</div>
-                `;
-
-                if (result.new_categories && result.new_categories.length > 0) {
-                    summaryDiv.innerHTML += `
-                        <div><strong>New categories added (refreshing in ~4 seconds):</strong> ${result.new_categories.join(', ')}</div>
-                    `;
-                    // Refresh needed to show new categories
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 4000);
-                } else {
-                    setTimeout(() => {
-                        importMessageDiv.textContent = '';
-                        importMessageDiv.className = 'form-message';
-                        summaryDiv.style.display = 'none';
-                    }, 4000);
-                }
-                fileInput.value = '';
-            } catch (error) {
-                console.error(`Error importing ${fileType} file:`, error);
-                const importMessageDiv = document.getElementById('importMessage');
-                importMessageDiv.textContent = `Error: ${error.message}`;
-                importMessageDiv.className = 'form-message error';
-                fileInput.value = '';
-            }
-        }
-
-        // Event listeners
+        // --- Event Listeners ---
         document.getElementById('addCategory').addEventListener('click', addCategory);
         document.getElementById('saveCategories').addEventListener('click', saveCategories);
         document.getElementById('saveCurrency').addEventListener('click', saveCurrency);
         document.getElementById('saveStartDate').addEventListener('click', saveStartDate);
-        document.getElementById('csvFile').addEventListener('change', handleFileUpload);
-        document.getElementById('jsonFile').addEventListener('change', handleFileUpload);
-        document.getElementById('newCategory').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                addCategory();
+        
+        document.getElementById('newCategory').addEventListener('keypress', e => e.key === 'Enter' && addCategory());
+
+        document.getElementById('recurringExpenseForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const isGain = document.getElementById('recurringReportGain').checked;
+            let amount = parseFloat(document.getElementById('recurringAmount').value);
+            if (isGain) amount *= -1;
+
+            const formData = {
+                name: document.getElementById('recurringName').value,
+                amount: amount,
+                category: document.getElementById('recurringCategory').value,
+                tags: Array.from(addFormSelectedTags),
+                interval: document.getElementById('recurringInterval').value,
+                startDate: new Date(document.getElementById('recurringStartDate').value).toISOString(),
+                occurrences: parseInt(document.getElementById('recurringOccurrences').value, 10)
+            };
+
+            try {
+                const response = await fetch('/recurring-expense', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                if (response.ok) {
+                    showMessage('recurringExpenseMessage', 'Recurring expense added successfully!', true);
+                    document.getElementById('recurringExpenseForm').reset();
+                    document.getElementById('selected-tags').innerHTML = '';
+                    addFormSelectedTags.clear();
+                    fetchAndRenderRecurringExpenses();
+                } else {
+                    const error = await response.json();
+                    showMessage('recurringExpenseMessage', `Error: ${error.error || 'Failed to add recurring expense'}`, false);
+                }
+            } catch (error) {
+                console.error('Error adding recurring expense:', error);
+                showMessage('recurringExpenseMessage', 'Error: Failed to add recurring expense', false);
             }
         });
 
-        // Initialize on load
         document.addEventListener('DOMContentLoaded', initialize);
         window.removeCategory = removeCategory;
+        window.showRecurringDeleteModal = showRecurringDeleteModal;
+        window.closeRecurringDeleteModal = closeRecurringDeleteModal;
+        window.confirmRecurringDelete = confirmRecurringDelete;
+        window.showRecurringEditModal = showRecurringEditModal;
+        window.closeRecurringEditModal = closeRecurringEditModal;
+        window.confirmRecurringUpdate = confirmRecurringUpdate;
     </script>
 </body>
 </html>

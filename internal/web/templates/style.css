@@ -47,7 +47,7 @@ header {
     margin-bottom: 1rem;
 }
 
-.nav-button {
+.nav-button, .edit-button {
     background-color: var(--bg-primary);
     border: 1px solid var(--border);
     color: var(--text-primary);
@@ -59,12 +59,12 @@ header {
 }
 
 @media (prefers-color-scheme: light) {
-    #prevMonth, #nextMonth {
+    #prevMonth, #nextMonth, #toggleExpenseFormBtn {
         background-color: var(--bg-secondary);
     }
 }
 
-.nav-button, .view-button {
+.nav-button, .view-button, .edit-button {
     border-radius: 9999px;
     padding: 0.5rem 1.25rem;
     font-weight: 500;
@@ -72,11 +72,11 @@ header {
     border: 1px solid var(--border);
 }
 
-.nav-button:hover {
+.nav-button:hover, .edit-button:hover {
     background-color: var(--accent);
 }
 
-.nav-button:hover, .view-button:hover {
+.nav-button:hover, .view-button:hover, .edit-button:hover {
     background-color: var(--accent);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -237,7 +237,6 @@ header {
     }
 }
 
-/* Table styles */
 .expense-table {
     width: 100%;
     border-collapse: collapse;
@@ -248,7 +247,7 @@ header {
 
 .expense-table th,
 .expense-table td {
-    padding: 1rem;
+    padding: 0.5rem;
     text-align: left;
     border-bottom: 1px solid var(--border);
 }
@@ -266,7 +265,7 @@ header {
     color: var(--text-secondary);
 }
 
-.delete-button {
+.delete-button, .edit-button {
     background: none;
     border: none;
     color: var(--text-secondary);
@@ -276,7 +275,7 @@ header {
     transition: all 0.2s;
 }
 
-.delete-button {
+.delete-button, .edit-button {
     border-radius: 9999px;
     padding: 6px 10px;
 }
@@ -286,7 +285,11 @@ header {
     color: #ff6b6b;
 }
 
-/* Modal styles */
+.edit-button:hover {
+    background-color: rgba(105, 175, 222, 0.1);
+    color: var(--accent);
+}
+
 .modal {
     display: none;
     position: fixed;
@@ -308,7 +311,7 @@ header {
     background-color: var(--bg-primary);
     padding: 2rem;
     border-radius: 8px;
-    max-width: 400px;
+    max-width: 500px;
     width: 90%;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
@@ -495,7 +498,7 @@ header {
 }
 
 .import-option label {
-    display: block;
+    /* display: block; */
     text-align: center;
     cursor: pointer;
 }
@@ -535,6 +538,25 @@ header {
     margin-top: 0.5rem;
 }
 
+.info-field {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
+.info-field a {
+    color: var(--text-primary);
+    text-decoration: underline;
+    cursor: pointer
+}
+.info-field a:hover {
+    transform: scale(1.1);
+}
+.info-field .separator {
+    color: var(--border);
+    margin: 0 0.5rem;
+}
+
 .currency-selector, .start-date-manager {
     display: flex;
     align-items: center;
@@ -552,7 +574,70 @@ header {
     min-width: 200px;
 }
 
-/* Responsive styles */
+.tags-input-container {
+    display: flex;
+    flex-wrap: wrap;
+    /* gap: 0.5rem; */
+    /* padding: 0.5rem; */
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background-color: var(--bg-primary);
+    cursor: text;
+}
+.selected-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+.tags-input-container input {
+    flex: 1;
+    border: none;
+    background: none;
+    outline: none;
+    color: var(--text-primary);
+    min-width: 100px;
+}
+.tag-pill {
+    background-color: var(--accent);
+    color: #fff;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.875rem;
+}
+.remove-tag {
+    cursor: pointer;
+    margin-left: 0.25rem;
+}
+
+.tags-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    max-height: 150px;
+    overflow-y: auto;
+    z-index: 10;
+    display: none;
+}
+
+.tags-dropdown div {
+    padding: 0.5rem;
+    cursor: pointer;
+}
+.tags-dropdown div:hover {
+    background-color: var(--accent);
+}
+.tags-dropdown .new-tag {
+    color: #2EAB7D;
+    font-style: italic;
+}
+
 @media (max-width: 768px) {
     .chart-container {
         flex-direction: column;
@@ -597,7 +682,8 @@ header {
     }
 
     .date-column,
-    .date-header {
+    .date-header,
+    .tags-column {
         display: none;
     }
 
@@ -619,8 +705,8 @@ header {
     }
 
     .cashflow-container {
-        flex-direction: column;
-        gap: 0.5rem;
+        flex-direction: row;
+        justify-content: space-around;
     }
     
     .cashflow-item {
@@ -638,6 +724,10 @@ header {
     .settings-container {
         flex-direction: column;
     }
+
+    .expense-form {
+        grid-template-columns: 1fr;
+    }
 }
 
 .form-container {
@@ -649,12 +739,17 @@ header {
 
 .expense-form {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 1rem;
     align-items: end;
 }
 
+.recurring-expense-form {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
 .form-group {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
@@ -663,6 +758,7 @@ header {
 .form-group label {
     font-size: 0.875rem;
     color: var(--text-secondary);
+    align-self: center;
 }
 
 .form-group input,
@@ -699,6 +795,7 @@ header {
     opacity: 1;
     border-radius: 4px;
     text-align: center;
+    grid-column: 1 / -1;
 }
 
 .form-message.success {
@@ -709,4 +806,34 @@ header {
 .form-message.error {
     background-color: rgba(239, 68, 68, 0.1);
     color: #EF4444;
+}
+
+.form-group.form-group-checkbox {
+    padding: 0.5rem;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.table-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.table-controls label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    /* border: 1px solid var(--border); */
+    border-radius: 8px;
+    background-color: var(--bg-secondary);
+    transition: background-color 0.2s;
+}
+
+.table-controls label:hover {
+    background-color: var(--accent);
 }

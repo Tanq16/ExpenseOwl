@@ -7,10 +7,12 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/tanq16/expenseowl/internal/fx"
 )
 
 // JSONStore implementats Storage interface - for JSON file storage
@@ -151,16 +153,20 @@ func (s *jsonStore) UpdateCategories(categories []string) error {
 	return s.writeConfigFile(s.configPath, data)
 }
 
-func (s *jsonStore) GetCurrency() (string, error) {
+func (s *jsonStore) GetCurrencyCatalog() map[string]string {
+	return currencyCatalog
+}
+
+func (s *jsonStore) GetDefaultCurrency() (string, error) {
 	config, err := s.GetConfig()
 	if err != nil {
 		return "", err
 	}
-	return config.Currency, nil
+	return config.DefaultCurrency, nil
 }
 
-func (s *jsonStore) UpdateCurrency(currency string) error {
-	if !slices.Contains(SupportedCurrencies, currency) {
+func (s *jsonStore) UpdateDefaultCurrency(currency string) error {
+	if !slices.Contains(supportedCurrencies, strings.ToLower(currency)) {
 		return fmt.Errorf("invalid currency: %s", currency)
 	}
 	s.mu.Lock()
@@ -169,8 +175,7 @@ func (s *jsonStore) UpdateCurrency(currency string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read config file: %v", err)
 	}
-	data.Currency = currency
-	s.defaults["currency"] = currency
+	data.DefaultCurrency = currency
 	return s.writeConfigFile(s.configPath, data)
 }
 
@@ -356,12 +361,17 @@ func (s *jsonStore) GetExpense(id string) (Expense, error) {
 }
 
 func (s *jsonStore) AddExpense(expense Expense) error {
+	defaultCurrency, err := s.GetDefaultCurrency()
+	if err != nil {
+		return fmt.Errorf("failed to get default currency from config: %v", err)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	data, err := s.readExpensesFile(s.filePath)
 	if err != nil {
 		return fmt.Errorf("failed to read storage file: %v", err)
 	}
+
 	if expense.ID == "" {
 		expense.ID = uuid.New().String()
 	}
@@ -371,9 +381,24 @@ func (s *jsonStore) AddExpense(expense Expense) error {
 	if expense.Date.IsZero() {
 		expense.Date = time.Now()
 	}
+	var rate float64 = 1
+	if expense.Currency != defaultCurrency {
+		go s.FetchRateAndEditExpense(expense, defaultCurrency)		
+	}
+	expense.ConvertedAmount = expense.Amount * rate
 	data.Expenses = append(data.Expenses, expense)
 	log.Printf("Added expense with ID %s\n", expense.ID)
 	return s.writeExpensesFile(s.filePath, data)
+}
+
+func (s *jsonStore) FetchRateAndEditExpense(expense Expense, defaultCurrency string) error {
+	rate, err := fx.Rate(expense.Currency, defaultCurrency, expense.Date)
+	if err != nil {
+		log.Printf("Error getting rate %v. Defaulting to 0.", err)
+		rate = 0
+	}
+	expense.ConvertedAmount = expense.Amount * rate
+	return s.UpdateExpense(expense.ID, expense)
 }
 
 func (s *jsonStore) RemoveExpense(id string) error {

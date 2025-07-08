@@ -250,12 +250,13 @@
         let allTags = new Set();
         let addFormSelectedTags = new Set();
         let editFormSelectedTags = new Set();
-        let currentCurrency = "usd";
+        let defaultCurrency = "USD";
         let currentStartDate = 1;
         let draggedItem = null;
         let recurringExpenses = [];
         let recurringExpenseToDelete = null;
         let recurringExpenseToEdit = null;
+        let currencyCatalog = [];
 
         function showMessage(elementId, message, isSuccess) {
             const messageDiv = document.getElementById(elementId);
@@ -482,13 +483,24 @@
 
         // --- Currency & Start Date ---
         function populateCurrencySelect() {
-            const select = document.getElementById('currencySelect');
-            select.innerHTML = Object.keys(currencyBehaviors).map(code => 
-                `<option value="${code}" ${code === currentCurrency ? 'selected' : ''}>
-                    ${code.toUpperCase()} (${currencyBehaviors[code].symbol})
+            const opts = currencyCatalog.map(({ code, symbol, name }) =>
+                `<option value="${code}"
+                        ${code.toLowerCase() === defaultCurrency.toLowerCase() ? "selected" : ""}>
+                    ${code} (${symbol}) ${name}
                 </option>`
-            ).join('');
+            ).join("");
+
+            document.getElementById("currencySelect").innerHTML = opts;
         }
+
+        // function populateCurrencySelect() {
+        //     const select = document.getElementById('currencySelect');
+        //     select.innerHTML = Object.keys(currencyBehaviors).map(code => 
+        //         `<option value="${code}" ${code === defaultCurrency ? 'selected' : ''}>
+        //             ${code.toUpperCase()} (${currencyBehaviors[code].symbol})
+        //         </option>`
+        //     ).join('');
+        // }
         
         async function saveCurrency() {
             const currencyCode = document.getElementById('currencySelect').value;
@@ -500,7 +512,7 @@
                 });
                 if (response.ok) {
                     showMessage('currencyMessage', 'Currency saved successfully', true);
-                    currentCurrency = currencyCode;
+                    defaultCurrency = currencyCode;
                 } else {
                     showMessage('currencyMessage', 'Failed to save currency', false);
                 }
@@ -780,15 +792,16 @@
                 const expenses = await expensesResponse.json();
                 if (!recurringExpensesResponse.ok) throw new Error('Failed to fetch recurring expenses');
                 recurringExpenses = await recurringExpensesResponse.json() || [];
-
+                currencyCatalog = await fetch("worldCurrenciesV2.json").then(r => r.json());
                 categories = [...config.categories];
-                currentCurrency = config.currency;
+                defaultCurrency = config.defaultCurrency;
                 currentStartDate = config.startDate;
                 allTags.clear();
                 (expenses || []).forEach(exp => (exp.tags || []).forEach(tag => allTags.add(tag)));
                 (recurringExpenses || []).forEach(exp => (exp.tags || []).forEach(tag => allTags.add(tag)));
 
                 renderCategories();
+                loadCurrenciesBehavior(currencyCatalog);
                 populateCurrencySelect();
                 populateStartDateInput();
                 document.getElementById('recurringCategory').innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');

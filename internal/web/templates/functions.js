@@ -3,55 +3,65 @@ const colorPalette = [
     '#FFBE0B', '#FF006E', '#8338EC', '#3A86FF', 
     '#FB5607', '#38B000', '#9B5DE5', '#F15BB5'
 ];
-const currencyBehaviors = {
-    "usd": { symbol: "$", useComma: false, useDecimals: true },
-    "eur": { symbol: "€", useComma: true, useDecimals: true },
-    "gbp": { symbol: "£", useComma: false, useDecimals: true },
-    "jpy": { symbol: "¥", useComma: false, useDecimals: false },
-    "cny": { symbol: "¥", useComma: false, useDecimals: true },
-    "krw": { symbol: "₩", useComma: false, useDecimals: false },
-    "inr": { symbol: "₹", useComma: false, useDecimals: true },
-    "rub": { symbol: "₽", useComma: true, useDecimals: true },
-    "brl": { symbol: "R$", useComma: true, useDecimals: true },
-    "zar": { symbol: "R", useComma: false, useDecimals: true },
-    "aed": { symbol: "AED", useComma: false, useDecimals: true },
-    "aud": { symbol: "A$", useComma: false, useDecimals: true },
-    "cad": { symbol: "C$", useComma: false, useDecimals: true },
-    "chf": { symbol: "Fr", useComma: false, useDecimals: true },
-    "hkd": { symbol: "HK$", useComma: false, useDecimals: true },
-    "bdt": { symbol: "৳", useComma: false, useDecimals: true },
-    "sgd": { symbol: "S$", useComma: false, useDecimals: true },
-    "thb": { symbol: "฿", useComma: false, useDecimals: true },
-    "try": { symbol: "₺", useComma: true, useDecimals: true },
-    "mxn": { symbol: "Mex$", useComma: false, useDecimals: true },
-    "php": { symbol: "₱", useComma: false, useDecimals: true },
-    "pln": { symbol: "zł", useComma: true, useDecimals: true },
-    "sek": { symbol: "kr", useComma: false, useDecimals: true },
-    "nzd": { symbol: "NZ$", useComma: false, useDecimals: true },
-    "dkk": { symbol: "kr.", useComma: true, useDecimals: true },
-    "idr": { symbol: "Rp", useComma: false, useDecimals: true },
-    "ils": { symbol: "₪", useComma: false, useDecimals: true },
-    "vnd": { symbol: "₫", useComma: true, useDecimals: false },
-    "myr": { symbol: "RM", useComma: false, useDecimals: true },
-};
+// const currencyBehaviors = {
+//     "usd": { symbol: "$", useComma: false, useDecimals: true },
+//     "eur": { symbol: "€", useComma: true, useDecimals: true },
+//     "gbp": { symbol: "£", useComma: false, useDecimals: true },
+//     "jpy": { symbol: "¥", useComma: false, useDecimals: false },
+//     "cny": { symbol: "¥", useComma: false, useDecimals: true },
+//     "krw": { symbol: "₩", useComma: false, useDecimals: false },
+//     "inr": { symbol: "₹", useComma: false, useDecimals: true },
+//     "rub": { symbol: "₽", useComma: true, useDecimals: true },
+//     "brl": { symbol: "R$", useComma: true, useDecimals: true },
+//     "zar": { symbol: "R", useComma: false, useDecimals: true },
+//     "aed": { symbol: "AED", useComma: false, useDecimals: true },
+//     "aud": { symbol: "A$", useComma: false, useDecimals: true },
+//     "cad": { symbol: "C$", useComma: false, useDecimals: true },
+//     "chf": { symbol: "Fr", useComma: false, useDecimals: true },
+//     "hkd": { symbol: "HK$", useComma: false, useDecimals: true },
+//     "sgd": { symbol: "S$", useComma: false, useDecimals: true },
+//     "thb": { symbol: "฿", useComma: false, useDecimals: true },
+//     "try": { symbol: "₺", useComma: true, useDecimals: true },
+//     "mxn": { symbol: "Mex$", useComma: false, useDecimals: true },
+//     "php": { symbol: "₱", useComma: false, useDecimals: true },
+//     "pln": { symbol: "zł", useComma: true, useDecimals: true },
+//     "sek": { symbol: "kr", useComma: false, useDecimals: true },
+//     "nzd": { symbol: "NZ$", useComma: false, useDecimals: true },
+//     "dkk": { symbol: "kr.", useComma: true, useDecimals: true },
+//     "idr": { symbol: "Rp", useComma: false, useDecimals: true },
+//     "ils": { symbol: "₪", useComma: false, useDecimals: true },
+//     "vnd": { symbol: "₫", useComma: true, useDecimals: false },
+//     "myr": { symbol: "RM", useComma: false, useDecimals: true },
+// };
 
 // let currentCurrency = 'usd';
 // let startDate = 1;
 // let currentDate = new Date();
 // let allExpenses = [];
 // let allTags = new Set();
+const currencyBehaviors = Object.create(null);
 
-function formatCurrency(amount) {
-    const behavior = currencyBehaviors[currentCurrency] || { symbol: '$', useComma: false, useDecimals: true };
+function loadCurrenciesBehavior(currencyCatalog) {
+    currencyCatalog.forEach(obj => {
+    currencyBehaviors[obj.code.toUpperCase()] = {
+      symbol:       obj.symbol,
+      decimals:     obj.decimals,
+      commaDecimal: obj.commaDecimal,
+      postFixCurrency: obj.postFixCurrency
+    };
+  });
+}
+
+function formatCurrency(amount, currency = defaultCurrency) {
+    const behavior = currencyBehaviors[currency.toUpperCase()] || { symbol: '$', commaDecimal: false, decimals: 2 };
     const isNegative = amount < 0;
     const absAmount = Math.abs(amount);
     const options = {
-        minimumFractionDigits: behavior.useDecimals ? 2 : 0,
-        maximumFractionDigits: behavior.useDecimals ? 2 : 0,
+        minimumFractionDigits: behavior.decimals,
+        maximumFractionDigits: behavior.decimals
     };
-    let formattedAmount = new Intl.NumberFormat(behavior.useComma ? 'de-DE' : 'en-US', options).format(absAmount);
-    const postfixCurrencies = new Set(['kr', 'kr.', 'Fr', 'zł']);
-    let result = postfixCurrencies.has(behavior.symbol) ? `${formattedAmount} ${behavior.symbol}` : `${behavior.symbol}${formattedAmount}`;
+    let formattedAmount = new Intl.NumberFormat(behavior.commaDecimal ? 'de-DE' : 'en-US', options).format(absAmount);
+    let result = behavior.postFixCurrency ? `${formattedAmount} ${behavior.symbol}` : `${behavior.symbol}${formattedAmount}`;
     return isNegative ? `-${result}` : result;
 }
 

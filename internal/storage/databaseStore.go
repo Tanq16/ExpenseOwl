@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"log"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"github.com/tanq16/expenseowl/internal/fx"
 )
 
 // databaseStore implements the Storage interface for PostgreSQL.
@@ -26,7 +28,7 @@ const (
 		recurring_id VARCHAR(36),
 		name VARCHAR(255) NOT NULL,
 		category VARCHAR(255) NOT NULL,
-		amount NUMERIC(10, 2) NOT NULL,
+		amount NUMERIC(18, 2) NOT NULL,
 		currency VARCHAR(3) NOT NULL,
 		date TIMESTAMPTZ NOT NULL,
 		tags TEXT
@@ -42,14 +44,16 @@ const (
 		start_date TIMESTAMPTZ NOT NULL,
 		interval VARCHAR(50) NOT NULL,
 		occurrences INTEGER NOT NULL,
-		tags TEXT
+		tags TEXT,
+		currency VARCHAR(3) NOT NULL DEFAULT 'usd',
+		converted_amount NUMERIC(18, 2) NOT NULL DEFAULT amount
 	);`
 
 	createConfigTableSQL = `
 	CREATE TABLE IF NOT EXISTS config (
 		id VARCHAR(255) PRIMARY KEY DEFAULT 'default',
 		categories TEXT NOT NULL,
-		currency VARCHAR(255) NOT NULL,
+		default_currency VARCHAR(255) NOT NULL,
 		start_date INTEGER NOT NULL
 	);`
 )
@@ -94,15 +98,15 @@ func (s *databaseStore) saveConfig(config *Config) error {
 		return fmt.Errorf("failed to marshal categories: %v", err)
 	}
 	query := `
-		INSERT INTO config (id, categories, currency, start_date)
+		INSERT INTO config (id, categories, default_currency, start_date)
 		VALUES ('default', $1, $2, $3)
 		ON CONFLICT (id) DO UPDATE SET
 			categories = EXCLUDED.categories,
-			currency = EXCLUDED.currency,
+			currency = EXCLUDED.default_currency,
 			start_date = EXCLUDED.start_date;
 	`
-	_, err = s.db.Exec(query, string(categoriesJSON), config.Currency, config.StartDate)
-	s.defaults["currency"] = config.Currency
+	_, err = s.db.Exec(query, string(categoriesJSON), config.DefaultCurrency, config.StartDate)
+	s.defaults["currency"] = config.DefaultCurrency
 	s.defaults["start_date"] = fmt.Sprintf("%d", config.StartDate)
 	return err
 }
@@ -119,7 +123,7 @@ func (s *databaseStore) updateConfig(updater func(c *Config) error) error {
 }
 
 func (s *databaseStore) GetConfig() (*Config, error) {
-	query := `SELECT categories, currency, start_date FROM config WHERE id = 'default'`
+	query := `SELECT categories, default_currency, start_date FROM config WHERE id = 'default'`
 	var categoriesStr, currency string
 	var startDate int
 	err := s.db.QueryRow(query).Scan(&categoriesStr, &currency, &startDate)
@@ -137,7 +141,7 @@ func (s *databaseStore) GetConfig() (*Config, error) {
 	}
 
 	var config Config
-	config.Currency = currency
+	config.DefaultCurrency = currency
 	config.StartDate = startDate
 	if err := json.Unmarshal([]byte(categoriesStr), &config.Categories); err != nil {
 		return nil, fmt.Errorf("failed to parse categories from db: %v", err)
@@ -167,20 +171,24 @@ func (s *databaseStore) UpdateCategories(categories []string) error {
 	})
 }
 
-func (s *databaseStore) GetCurrency() (string, error) {
+func (s *databaseStore) GetCurrencyCatalog() map[string]string {
+	return currencyCatalog
+}
+
+func (s *databaseStore) GetDefaultCurrency() (string, error) {
 	config, err := s.GetConfig()
 	if err != nil {
 		return "", err
 	}
-	return config.Currency, nil
+	return config.DefaultCurrency, nil
 }
 
-func (s *databaseStore) UpdateCurrency(currency string) error {
-	if !slices.Contains(SupportedCurrencies, currency) {
+func (s *databaseStore) UpdateDefaultCurrency(currency string) error {
+	if !slices.Contains(supportedCurrencies, strings.ToLower(currency)) {
 		return fmt.Errorf("invalid currency: %s", currency)
 	}
 	return s.updateConfig(func(c *Config) error {
-		c.Currency = currency
+		c.DefaultCurrency = currency
 		return nil
 	})
 }
@@ -207,7 +215,7 @@ func scanExpense(scanner interface{ Scan(...any) error }) (Expense, error) {
 	var expense Expense
 	var tagsStr sql.NullString
 	var recurringID sql.NullString
-	err := scanner.Scan(&expense.ID, &recurringID, &expense.Name, &expense.Category, &expense.Amount, &expense.Date, &tagsStr)
+	err := scanner.Scan(&expense.ID, &recurringID, &expense.Name, &expense.Category, &expense.Amount, &expense.Date, &tagsStr, &expense.Currency, &expense.ConvertedAmount)
 	if err != nil {
 		return Expense{}, err
 	}
@@ -223,7 +231,7 @@ func scanExpense(scanner interface{ Scan(...any) error }) (Expense, error) {
 }
 
 func (s *databaseStore) GetAllExpenses() ([]Expense, error) {
-	query := `SELECT id, recurring_id, name, category, amount, date, tags FROM expenses ORDER BY date DESC`
+	query := `SELECT id, recurring_id, name, category, amount, date, tags, currency, converted_amount FROM expenses ORDER BY date DESC`
 	rows, err := s.db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query expenses: %v", err)
@@ -242,7 +250,7 @@ func (s *databaseStore) GetAllExpenses() ([]Expense, error) {
 }
 
 func (s *databaseStore) GetExpense(id string) (Expense, error) {
-	query := `SELECT id, recurring_id, name, category, amount, date, tags FROM expenses WHERE id = $1`
+	query := `SELECT id, recurring_id, name, category, amount, date, tags, currency, converted_amount FROM expenses WHERE id = $1`
 	expense, err := scanExpense(s.db.QueryRow(query, id))
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -254,6 +262,10 @@ func (s *databaseStore) GetExpense(id string) (Expense, error) {
 }
 
 func (s *databaseStore) AddExpense(expense Expense) error {
+	defaultCurrency, err := s.GetDefaultCurrency()
+	if err != nil {
+		return fmt.Errorf("failed to get default currency from config: %v", err)
+	}
 	if expense.ID == "" {
 		expense.ID = uuid.New().String()
 	}
@@ -263,16 +275,32 @@ func (s *databaseStore) AddExpense(expense Expense) error {
 	if expense.Date.IsZero() {
 		expense.Date = time.Now()
 	}
+	var rate float64 = 1
+	if expense.Currency != defaultCurrency {
+		go s.FetchRateAndEditExpense(expense, defaultCurrency)
+	}
+	expense.ConvertedAmount = expense.Amount * rate
 	tagsJSON, err := json.Marshal(expense.Tags)
 	if err != nil {
 		return err
 	}
+
 	query := `
 		INSERT INTO expenses (id, recurring_id, name, category, amount, currency, date, tags)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`
 	_, err = s.db.Exec(query, expense.ID, expense.RecurringID, expense.Name, expense.Category, expense.Amount, expense.Currency, expense.Date, string(tagsJSON))
 	return err
+}
+
+func (s *databaseStore) FetchRateAndEditExpense(expense Expense, defaultCurrency string) error {
+	rate, err := fx.Rate(expense.Currency, defaultCurrency, expense.Date)
+	if err != nil {
+		log.Printf("Error getting rate %v. Defaulting to 0.", err)
+		rate = 0
+	}
+	expense.ConvertedAmount = expense.Amount * rate
+	return s.UpdateExpense(expense.ID, expense)
 }
 
 func (s *databaseStore) UpdateExpense(id string, expense Expense) error {
@@ -378,7 +406,7 @@ func (s *databaseStore) GetRecurringExpenses() ([]RecurringExpense, error) {
 }
 
 func (s *databaseStore) GetRecurringExpense(id string) (RecurringExpense, error) {
-	query := `SELECT id, name, amount, category, start_date, interval, occurrences, tags FROM recurring_expenses WHERE id = $1`
+	query := `SELECT id, name, amount, category, start_date, interval, occurrences, tags, currency, convertedAmount FROM recurring_expenses WHERE id = $1`
 	re, err := scanRecurringExpense(s.db.QueryRow(query, id))
 	if err != nil {
 		if err == sql.ErrNoRows {

@@ -16,10 +16,11 @@ type Storage interface {
 	// Basic Config Updates
 	GetCategories() ([]string, error)
 	UpdateCategories(categories []string) error
+	GetCurrencyCatalog() map[string]string
 	// GetTags() ([]string, error)
 	// UpdateTags(tags []string) error
-	GetCurrency() (string, error)
-	UpdateCurrency(currency string) error
+	GetDefaultCurrency() (string, error)
+	UpdateDefaultCurrency(currency string) error
 	GetStartDate() (int, error)
 	UpdateStartDate(startDate int) error
 
@@ -47,7 +48,7 @@ type Storage interface {
 // config for expense data
 type Config struct {
 	Categories        []string           `json:"categories"`
-	Currency          string             `json:"currency"`
+	DefaultCurrency   string             `json:"defaultCurrency"`
 	StartDate         int                `json:"startDate"`
 	RecurringExpenses []RecurringExpense `json:"recurringExpenses"`
 	// Tags              []string           `json:"tags"`
@@ -95,7 +96,7 @@ type Expense struct {
 
 func (c *Config) SetBaseConfig() {
 	c.Categories = defaultCategories
-	c.Currency = "usd"
+	c.DefaultCurrency = "USD"
 	c.StartDate = 1
 	// c.Tags = []string{}
 	c.RecurringExpenses = []RecurringExpense{}
@@ -245,36 +246,4 @@ var defaultCategories = []string{
 	"Shopping",
 	"Miscellaneous",
 	"Income",
-}
-
-var SupportedCurrencies = []string{
-	"usd", // US Dollar
-	"eur", // Euro
-	"gbp", // British Pound
-	"jpy", // Japanese Yen
-	"cny", // Chinese Yuan
-	"krw", // Korean Won
-	"inr", // Indian Rupee
-	"rub", // Russian Ruble
-	"brl", // Brazilian Real
-	"zar", // South African Rand
-	"aed", // UAE Dirham
-	"aud", // Australian Dollar
-	"cad", // Canadian Dollar
-	"chf", // Swiss Franc
-	"hkd", // Hong Kong Dollar
-	"bdt", // Bangladeshi Taka
-	"sgd", // Singapore Dollar
-	"thb", // Thai Baht
-	"try", // Turkish Lira
-	"mxn", // Mexican Peso
-	"php", // Philippine Peso
-	"pln", // Polish Złoty
-	"sek", // Swedish Krona
-	"nzd", // New Zealand Dollar
-	"dkk", // Danish Krone
-	"idr", // Indonesian Rupiah
-	"ils", // Israeli New Shekel
-	"vnd", // Vietnamese Dong
-	"myr", // Malaysian Ringgit
 }

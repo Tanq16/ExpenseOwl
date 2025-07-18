@@ -379,10 +379,10 @@ func (h *Handler) DeleteRecurringExpense(w http.ResponseWriter, r *http.Request)
 }
 
 // ------------------------------------------------------------
-// Static and UI Handlers
+// FX Rates
 // ------------------------------------------------------------
 
-// GET /api/rate?from=eur&to=usd&date=2025-07-08  →  {"rate":0.9213}
+// GET /fx/rate?from=eur&to=usd&date=2025-07-08  →  {"rate":0.9213}
 func (h *Handler) GetRate(w http.ResponseWriter, r *http.Request) {
 	from := r.URL.Query().Get("from")
 	to := r.URL.Query().Get("to")
@@ -406,6 +406,32 @@ func (h *Handler) GetRate(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(struct {
 		Rate float64 `json:"rate"`
 	}{rate})
+}
+
+
+func (h *Handler) GetRates(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, ErrorResponse{Error: "Method not allowed"})
+		return
+	}
+	var ratesRequest map[string]map[string][]string
+	if err := json.NewDecoder(r.Body).Decode(&ratesRequest); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Invalid request body"})
+		return
+	}
+	//ratesParams := make(map[time.Time]map[string][]string)
+	// for key, value := range ratesRequest {
+	//     day := key.Format("2006-01-02") // tronque l'heure
+	//     out[day] = append(out[day], e)
+	// }
+
+	rates, err := h.storage.GetRates(ratesRequest)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Failed to get rates"})
+		log.Printf("API ERROR: Failed to get rates: %v\n", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, rates)
 }
 
 // ------------------------------------------------------------

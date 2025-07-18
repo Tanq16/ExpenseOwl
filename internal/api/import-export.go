@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -31,7 +30,7 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	defer writer.Flush()
 
 	// Write header
-	headers := []string{"ID", "Name", "Category", "Amount", "Date", "Tags"}
+	headers := []string{"ID", "Name", "Category", "Amount", "Currency", "Date", "Tags"}
 	if err := writer.Write(headers); err != nil {
 		log.Printf("API ERROR: Failed to write CSV header: %v\n", err)
 		return
@@ -45,6 +44,7 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 			expense.Category,
 			// expense.Currency,
 			strconv.FormatFloat(expense.Amount, 'f', 2, 64),
+			expense.Currency,
 			expense.Date.Format(time.RFC3339),
 			strings.Join(expense.Tags, ","),
 		}
@@ -113,7 +113,7 @@ func (h *Handler) ImportCSV(w http.ResponseWriter, r *http.Request) {
 	var newCategories []string
 	var importedCount, skippedCount int
 	// TODO: might be worth setting default currency when we have currency updation behavior
-	currencyVal, err := h.storage.GetCurrency()
+	currencyVal, err := h.storage.GetDefaultCurrency()
 	if err != nil {
 		log.Printf("Error: Could not retrieve currency, shutting down import: %v\n", err)
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Could not retrieve currency"})
@@ -141,7 +141,7 @@ func (h *Handler) ImportCSV(w http.ResponseWriter, r *http.Request) {
 		localCurrency := currencyVal
 		if currencyExists {
 			currency := record[currencyIdx]
-			if !slices.Contains(storage.SupportedCurrencies, currency) {
+			if !storage.IsValidCurrency(currency) {
 				log.Printf("Warning: Skipping row %d due to invalid currency: %s\n", i+2, currency)
 				skippedCount++
 				continue

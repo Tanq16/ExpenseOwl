@@ -8,6 +8,29 @@ func IsValidCurrency(code string) bool {
 	return ok
 }
 
+func toUpperSet(src map[string]string) map[string]struct{} {
+	set := make(map[string]struct{}, len(src))
+	for k := range src { // on ignore la valeur
+		set[strings.ToUpper(k)] = struct{}{}
+	}
+	return set
+}
+
+// keepOnly keeps in m only the keys that appear in the allow‐set.
+//
+//	m        : map you want to trim         (map[string]float64)
+//	allowSet : membership test in O(1)      (map[string]string{})
+func KeepOnlyValidCurrencies(m map[string]float64, allowSet map[string]string) {
+	for k, v := range m {
+		upperCase := strings.ToUpper(k)
+		_, ok := allowSet[upperCase]
+		delete(m, k)
+		if ok {
+			m[upperCase] = v
+		}
+	}
+}
+
 // CurrencyCatalog maps ISO-4217 codes to their symbol.
 // The comment preserves the human-readable currency name.
 var currencyCatalog = map[string]string{

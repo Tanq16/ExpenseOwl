@@ -130,6 +130,7 @@
         let allTags = new Set();
         let selectedTags = new Set();
         let currencyCatalog = [];
+        let rates = []; //Map of rates
         
         // function escapeHTML(str) {
         //     if (typeof str !== 'string') return str;
@@ -255,6 +256,7 @@
             }
             const hasTags = expenses.some(exp => exp.tags && exp.tags.length > 0);
             const hasOtherCurrencies = expenses.some(exp => exp.currency != defaultCurrency);
+            
             return `
                 <table class="expense-table">
                     <thead>
@@ -263,7 +265,7 @@
                             <th>Category</th>
                             ${hasTags ? '<th class="tags-column">Tags</th>' : ''}
                             <th>Amount</th>
-                            ${hasOtherCurrencies ? `<th class="other-currencies-column">In ${defaultCurrency}</th>` : ''}
+                            ${hasOtherCurrencies ? `<th class="tags-column">In ${defaultCurrency}</th>` : ''}
                             <th class="date-header">Date</th>
                             <th></th>
                         </tr>
@@ -275,7 +277,7 @@
                                 <td>${escapeHTML(expense.category)}</td>
                                 ${hasTags ? `<td class="tags-column">${(expense.tags || []).map(escapeHTML).join(', ')}</td>` : ''}
                                 <td class="amount">${formatCurrency(expense.amount, expense.currency)}</td>
-                                <td class="amount">${expense.currency != defaultCurrency ? formatCurrency(expense.convertedAmount) : ''}</td>
+                                ${hasOtherCurrencies ? `<td class="amount">${expense.currency != defaultCurrency ? formatToConvertedAmount(expense.amount, rates?.[expense.date.slice(0, 10)]?.[expense.currency]?.[defaultCurrency] ?? 0) : ''}</td>` : ''}
                                 <td class="date-column">${formatDateFromUTC(expense.date)}</td>
                                 <td>
                                     <button class="edit-button" onclick="editExpenseByIndex(${index})">
@@ -431,7 +433,7 @@
         async function loadCurrencies(){
             const map = await fetch("/currency/catalog").then(r=>r.json());
             const opts = Object.keys(map).map(code => 
-                `<option value="${code}" ${code.toLowerCase() === defaultCurrency.toLowerCase() ? "selected" : ""}>
+                `<option value="${code}" ${code.toUpperCase() === defaultCurrency.toUpperCase() ? "selected" : ""}>
                     ${code} (${map[code]})
                 </option>`
             ).join('');
@@ -448,14 +450,23 @@
                     `<option value="${cat}">${cat}</option>`
                 ).join('');
                 defaultCurrency = config.defaultCurrency;
-                currencyCatalog = await fetch("worldCurrenciesV3.json").then(r => r.json());
+                currencyCatalog = await fetch("worldCurrencies.json").then(r => r.json());
                 startDate = config.startDate;
                 
                 const response = await fetch('/expenses');
-                if (!response.ok) throw new Error('Failed to fetch data');
+                if (!response.ok) throw new Error('Failed to fetch expenses data');
                 const data = await response.json();
                 allExpenses = Array.isArray(data) ? data : (data && Array.isArray(data.expenses) ? data.expenses : []);
-                
+
+                const ratesResponse = await fetch('/fx/rates', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(extractRateParams(allExpenses, defaultCurrency))
+                });
+                if (!ratesResponse.ok) throw new Error('Failed to fetch rates data');
+                const ratesData = await ratesResponse.json();
+                rates = (ratesData && typeof ratesData === 'object') ? ratesData : {};
+
                 allTags.clear();
                 allExpenses.forEach(exp => {
                     if (exp.tags) {

@@ -133,6 +133,10 @@
                     <select id="recurringCategory" required></select>
                 </div>
                 <div class="form-group">
+                    <label for="recurringCurrency">Currency</label>
+                    <select id="recurringCurrency" required></select>
+                </div>
+                <div class="form-group">
                     <label for="tags-input">Tags</label>
                     <div class="tags-input-container">
                         <div id="selected-tags" class="selected-tags"></div>
@@ -205,6 +209,10 @@
                 <div class="form-group">
                     <label for="editRecurringCategory">Category</label>
                     <select id="editRecurringCategory" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="editRecurringCurrency">Currency</label>
+                    <select id="editRecurringCurrency" required></select>
                 </div>
                 <div class="form-group">
                     <label for="edit-tags-input">Tags</label>
@@ -483,14 +491,23 @@
 
         // --- Currency & Start Date ---
         function populateCurrencySelect() {
-            const opts = currencyCatalog.map(({ code, symbol, name }) =>
+            const settingsOpts = currencyCatalog.map(({ code, symbol, name }) =>
                 `<option value="${code}"
-                        ${code.toLowerCase() === defaultCurrency.toLowerCase() ? "selected" : ""}>
+                    ${code.toUpperCase() === defaultCurrency.toUpperCase() ? "selected" : ""}>
                     ${code} (${symbol}) ${name}
                 </option>`
             ).join("");
 
-            document.getElementById("currencySelect").innerHTML = opts;
+            const currencyOpts = currencyCatalog.map(({ code, symbol }) =>
+                `<option value="${code}" 
+                    ${code.toUpperCase() === defaultCurrency.toUpperCase() ? "selected" : ""}>
+                    ${code} (${symbol})
+                </option>`
+            ).join('');
+            document.getElementById("currencySelect").innerHTML = settingsOpts;
+
+            document.getElementById("recurringCurrency").innerHTML = currencyOpts;
+            document.getElementById("editRecurringCurrency").innerHTML = currencyOpts;
         }
 
         // function populateCurrencySelect() {
@@ -591,12 +608,13 @@
             }
             list.innerHTML = `
                 <table class="expense-table">
-                    <thead><tr><th>Name</th><th>Amount</th><th>Category</th><th>Interval</th><th>Next Occurrence</th><th></th></tr></thead>
+                    <thead><tr><th>Name</th><th>Amount</th><th>Currency</th><th>Category</th><th>Interval</th><th>Next Occurrence</th><th></th></tr></thead>
                     <tbody>
                         ${recurring.map(r => `
                             <tr>
                                 <td>${r.name}</td>
-                                <td>${formatCurrency(r.amount)}</td>
+                                <td>${formatCurrency(r.amount, r.currency)}</td>
+                                <td>${r.currency}</td>
                                 <td>${r.category}</td>
                                 <td>${r.interval.charAt(0).toUpperCase() + r.interval.slice(1)}</td>
                                 <td>${findNextOccurrence(r)}</td>
@@ -640,6 +658,7 @@
             if (!recurringExpenseToEdit) return;
             document.getElementById('editRecurringName').value = recurringExpenseToEdit.name;
             document.getElementById('editRecurringAmount').value = Math.abs(recurringExpenseToEdit.amount);
+            document.getElementById('editRecurringCurrency').value = recurringExpenseToEdit.currency;
             document.getElementById('editRecurringReportGain').checked = recurringExpenseToEdit.amount > 0;
             document.getElementById('editRecurringCategory').value = recurringExpenseToEdit.category;
             document.getElementById('editRecurringInterval').value = recurringExpenseToEdit.interval;
@@ -792,7 +811,7 @@
                 const expenses = await expensesResponse.json();
                 if (!recurringExpensesResponse.ok) throw new Error('Failed to fetch recurring expenses');
                 recurringExpenses = await recurringExpensesResponse.json() || [];
-                currencyCatalog = await fetch("worldCurrenciesV2.json").then(r => r.json());
+                currencyCatalog = await fetch("worldCurrencies.json").then(r => r.json());
                 categories = [...config.categories];
                 defaultCurrency = config.defaultCurrency;
                 currentStartDate = config.startDate;
@@ -860,6 +879,7 @@
                 name: document.getElementById('recurringName').value,
                 amount: amount,
                 category: document.getElementById('recurringCategory').value,
+                currency: document.getElementById('recurringCurrency').value,
                 tags: Array.from(addFormSelectedTags),
                 interval: document.getElementById('recurringInterval').value,
                 startDate: getISODateWithLocalTime(document.getElementById('recurringStartDate').value),

@@ -160,3 +160,34 @@ function escapeHTML(str) {
         }[tag] || tag)
     );
 }
+
+function getDateWithoutTime(dateObject) {
+  // Get the year, month, and day from the original Date object
+  const year = dateObject.getFullYear();
+  const month = dateObject.getMonth(); // Month is 0-indexed
+  const day = dateObject.getDate();
+
+  // Create a new Date object with only the year, month, and day
+  // Hours, minutes, seconds, and milliseconds will default to 0
+  return new Date(year, month, day);
+}
+
+function formatToConvertedAmount(amount, rate, currency = defaultCurrency) {    
+    return rate == 0 ? "Nan" : formatCurrency(amount * rate, currency);
+}
+
+function extractRateParams(expenses, defaultQuote) {
+  const ratesParams = Object.create(null);         
+  defaultQuote = defaultQuote.toUpperCase();
+
+  for (const exp of expenses) {
+    //const day  =  new Date(exp.date).toISOString().slice(0, 10);
+    const day  =  exp.date.slice(0, 10);
+    const base = (exp.currency || "").toUpperCase();
+    if (!base || base == defaultQuote) continue;                     // skip if unknown base
+
+    if (!ratesParams[day]) ratesParams[day] = Object.create(null);
+    ratesParams[day][base] = [defaultQuote];                      // {day:{base:quote}}
+  }
+  return ratesParams;
+}

@@ -137,6 +137,13 @@ func fetchFromWeb(base string, day time.Time) (map[string]float64, error) {
 /* ------------------------------------------------------------------------- */
 /* -------------------------- public api ------------------------------- */
 /* ------------------------------------------------------------------------- */
+func FormatToString(date time.Time) string {
+	return date.Format(isoLayout)
+}
+
+func FormatToTime(dateStr string) (time.Time, error) {
+	return time.Parse(isoLayout, dateStr)
+}
 
 // RatesOn returns all rates for `base` (ISO, any case) on `day`.
 func RatesOn(base string, day time.Time) (map[string]float64, error) {

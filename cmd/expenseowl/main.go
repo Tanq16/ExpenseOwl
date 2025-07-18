@@ -49,8 +49,6 @@ func runServer() {
 	http.HandleFunc("/functions.js", handler.ServeStaticFile)
 	http.HandleFunc("/manifest.json", handler.ServeStaticFile)
 	http.HandleFunc("/worldCurrencies.json", handler.ServeStaticFile)
-	http.HandleFunc("/worldCurrenciesV2.json", handler.ServeStaticFile)
-	http.HandleFunc("/worldCurrenciesV3.json", handler.ServeStaticFile)
 	http.HandleFunc("/sw.js", handler.ServeStaticFile)
 	http.HandleFunc("/pwa/", handler.ServeStaticFile)
 	http.HandleFunc("/style.css", handler.ServeStaticFile)
@@ -85,7 +83,8 @@ func runServer() {
 	http.HandleFunc("/recurring-expense/delete", handler.DeleteRecurringExpense) // DELETE
 
 	// Fx
-	http.HandleFunc("/fx/rate", handler.GetRate)
+	http.HandleFunc("/fx/rate", handler.GetRate) // GET
+	http.HandleFunc("/fx/rates", handler.GetRates) // POST
 
 	// Import/Export
 	http.HandleFunc("/export/csv", handler.ExportCSV)

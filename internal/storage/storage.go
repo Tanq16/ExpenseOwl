@@ -40,9 +40,9 @@ type Storage interface {
 	RemoveMultipleExpenses(ids []string) error
 	UpdateExpense(id string, expense Expense) error
 
-	// Potential Future Feature: Multi-currency
-	// GetConversions() (map[string]float64, error)
-	// UpdateConversions(conversions map[string]float64) error
+	// Fx Rates
+	GetRate(day time.Time, base, quote string) (float64, error)
+	GetRates(ratesParams map[string]map[string][]string) (Rates, error)
 }
 
 // config for expense data
@@ -92,6 +92,25 @@ type Expense struct {
 	Amount      float64   `json:"amount"`
 	Currency    string    `json:"currency"`
 	Date        time.Time `json:"date"`
+}
+
+// Rates struct
+//
+//	 map[date]map[currency]map[quote]rate  inpseudocode
+//		YYYY-MM-DD    currency   quote ➜ rate
+type Rates map[string]map[string]map[string]float64
+
+type FxRate struct {
+	Day           time.Time // 2025-07-08
+	BaseCurrency  string    // "usd"
+	QuoteCurrency string    // "eur"
+	Rate          float64
+}
+
+type FxRates struct {
+	Days   []time.Time `json:"days"`
+	Bases  []string    `json:"bases"`
+	Quotes []string    `json:"quotes"`
 }
 
 func (c *Config) SetBaseConfig() {

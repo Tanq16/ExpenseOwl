@@ -329,7 +329,7 @@
             
             const sumsExpenses = monthExpenses
                 .reduce((map, exp) => {
-                    if (exp.currency === defaultCurrency) return map;
+                    if (exp.convertedAmount > 0 || exp.currency === defaultCurrency) return map;
                     if (!map[exp.currency]) map[exp.currency] = { original: 0, converted: 0 };
                     map[exp.currency].original += exp.amount;
                     map[exp.currency].converted += exp.convertedAmount;

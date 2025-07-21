@@ -44,7 +44,7 @@ const (
 		start_date TIMESTAMPTZ NOT NULL,
 		interval VARCHAR(50) NOT NULL,
 		occurrences INTEGER NOT NULL,
-		tags TEXT,
+		tags TEXT
 	);`
 
 	createRatesTableSQL = `

@@ -252,6 +252,22 @@
         </div>
     </div>
 
+    <div id="editCurrencyImportOldCsv" class="modal">
+        <div class="modal-content">
+            <h3>Chose Expenses Currency</h3>
+            <form id="editCurrencyImportOldCsvForm" class="expense-form recurring-expense-form">                
+                <div class="form-group">
+                    <label for="editImportCurrency">Currency</label>
+                    <select id="editImportCurrency" required></select>
+                </div>                                            
+            </form>
+            <div class="modal-buttons">
+                <button id="confirmImportCurrencyButton" class="modal-button">Confirm</button>
+                <button id="cancelImportCurrencyButton" class="modal-button">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/functions.js"></script>
     <script>
         let categories = [];
@@ -505,6 +521,7 @@
                 </option>`
             ).join('');
             document.getElementById("currencySelect").innerHTML = settingsOpts;
+            document.getElementById("editImportCurrency").innerHTML = settingsOpts;
 
             document.getElementById("recurringCurrency").innerHTML = currencyOpts;
             document.getElementById("editRecurringCurrency").innerHTML = currencyOpts;
@@ -757,8 +774,11 @@
         async function handleCsvImportOld(event) {
             const file = event.target.files[0];
             if (!file) return;
+            let currency = await askImportCurrency();
+            if (!currency) return;
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('currency', currency);
             const messageDiv = document.getElementById('importMessage');
             const summaryDiv = document.getElementById('importSummary');
 
@@ -795,6 +815,33 @@
             } finally {
                 event.target.value = '';
             }
+        }
+
+        async function askImportCurrency() {
+            const modal   = document.getElementById("editCurrencyImportOldCsv");            
+            const confirmButton   = document.getElementById("confirmImportCurrencyButton");
+            const cancelButton = document.getElementById("cancelImportCurrencyButton");
+            
+            modal.style.display = "flex";
+
+            return new Promise((resolve, reject) => {
+                function cleanUp() {
+                modal.style.display = "none";
+                confirmButton.removeEventListener("click", onConfirm);
+                cancelButton.removeEventListener("click", onCancel);
+                }
+                function onConfirm() {
+                    const currency = document.getElementById('editImportCurrency').value; 
+                    cleanUp(); 
+                    resolve(currency); 
+                }
+                function onCancel() { 
+                    cleanUp(); 
+                    reject(false); 
+                }                
+                confirmButton.addEventListener("click", onConfirm);
+                cancelButton.addEventListener("click", onCancel);
+            });
         }
 
         // --- Initialization ---

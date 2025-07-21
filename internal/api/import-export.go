@@ -146,7 +146,7 @@ func (h *Handler) ImportCSV(w http.ResponseWriter, r *http.Request) {
 				skippedCount++
 				continue
 			}
-			localCurrency = strings.TrimSpace(currency)
+			localCurrency = strings.ToUpper(strings.TrimSpace(currency))
 		}
 
 		amount, err := strconv.ParseFloat(record[colMap["amount"]], 64)
@@ -225,6 +225,18 @@ func (h *Handler) ImportOldCSV(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Could not parse multipart form"})
 		return
 	}
+
+	currency := r.FormValue("currency")
+	if currency == "" {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Error retrieving the currency"})
+		return
+	}
+	if !storage.IsValidCurrency(currency) {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Invalid currency"})
+		return
+	}
+	currency = strings.ToUpper(strings.TrimSpace(currency))
+
 	file, _, err := r.FormFile("file")
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Error retrieving the file"})
@@ -299,6 +311,7 @@ func (h *Handler) ImportOldCSV(w http.ResponseWriter, r *http.Request) {
 		expense := storage.Expense{
 			Name:     strings.TrimSpace(record[colMap["name"]]),
 			Category: category,
+			Currency: currency,
 			Amount:   amountUpdated,
 			Date:     date,
 		}

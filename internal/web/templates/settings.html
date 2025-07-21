@@ -526,15 +526,6 @@
             document.getElementById("recurringCurrency").innerHTML = currencyOpts;
             document.getElementById("editRecurringCurrency").innerHTML = currencyOpts;
         }
-
-        // function populateCurrencySelect() {
-        //     const select = document.getElementById('currencySelect');
-        //     select.innerHTML = Object.keys(currencyBehaviors).map(code => 
-        //         `<option value="${code}" ${code === defaultCurrency ? 'selected' : ''}>
-        //             ${code.toUpperCase()} (${currencyBehaviors[code].symbol})
-        //         </option>`
-        //     ).join('');
-        // }
         
         async function saveCurrency() {
             const currencyCode = document.getElementById('currencySelect').value;
@@ -703,6 +694,7 @@
                 name: document.getElementById('editRecurringName').value,
                 amount: amount,
                 category: document.getElementById('editRecurringCategory').value,
+                currency: document.getElementById('editRecurringCurrency').value,
                 tags: Array.from(editFormSelectedTags),
                 interval: document.getElementById('editRecurringInterval').value,
                 startDate: new Date(document.getElementById('editRecurringStartDate').value).toISOString(),
@@ -817,6 +809,7 @@
             }
         }
 
+        // Launch the asking currency modal and return value at confirmation
         async function askImportCurrency() {
             const modal   = document.getElementById("editCurrencyImportOldCsv");            
             const confirmButton   = document.getElementById("confirmImportCurrencyButton");

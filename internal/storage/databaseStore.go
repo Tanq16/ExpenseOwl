@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"slices"
 	"strings"
 	"time"
 
@@ -113,8 +112,8 @@ func (s *databaseStore) saveConfig(config *Config) error {
 			start_date = EXCLUDED.start_date;
 	`
 	_, err = s.db.Exec(query, string(categoriesJSON), config.DefaultCurrency, config.StartDate)
-	s.defaults["currency"] = config.DefaultCurrency
-	s.defaults["start_date"] = fmt.Sprintf("%d", config.StartDate)
+	s.defaults["defaultCurrency"] = config.DefaultCurrency
+	s.defaults["startDate"] = fmt.Sprintf("%d", config.StartDate)
 	return err
 }
 
@@ -191,7 +190,7 @@ func (s *databaseStore) GetDefaultCurrency() (string, error) {
 }
 
 func (s *databaseStore) UpdateDefaultCurrency(currency string) error {
-	if !slices.Contains(supportedCurrencies, strings.ToLower(currency)) {
+	if !IsValidCurrency(currency) {
 		return fmt.Errorf("invalid currency: %s", currency)
 	}
 	return s.updateConfig(func(c *Config) error {
@@ -269,20 +268,16 @@ func (s *databaseStore) GetExpense(id string) (Expense, error) {
 }
 
 func (s *databaseStore) AddExpense(expense Expense) error {
-	defaultCurrency, err := s.GetDefaultCurrency()
-	if err != nil {
-		return fmt.Errorf("failed to get default currency from config: %v", err)
-	}
 	if expense.ID == "" {
 		expense.ID = uuid.New().String()
 	}
 	if expense.Currency == "" {
-		expense.Currency = s.defaults["currency"]
+		expense.Currency = s.defaults["defaultCurrency"]
 	}
 	if expense.Date.IsZero() {
 		expense.Date = time.Now()
 	}
-	if expense.Currency != defaultCurrency {
+	if expense.Currency != s.defaults["defaultCurrency"] {
 		go s.fetchRatesAndUpdateTable(expense.Currency, expense.Date)
 	}
 	tagsJSON, err := json.Marshal(expense.Tags)
@@ -305,7 +300,7 @@ func (s *databaseStore) UpdateExpense(id string, expense Expense) error {
 	}
 	// TODO: revisit to maybe remove this later, might not be a good default for update
 	if expense.Currency == "" {
-		expense.Currency = s.defaults["currency"]
+		expense.Currency = s.defaults["defaultCurrency"]
 	}
 	query := `
 		UPDATE expenses
@@ -423,7 +418,7 @@ func (s *databaseStore) AddRecurringExpense(recurringExpense RecurringExpense) e
 		recurringExpense.ID = uuid.New().String()
 	}
 	if recurringExpense.Currency == "" {
-		recurringExpense.Currency = s.defaults["currency"]
+		recurringExpense.Currency = s.defaults["defaultCurrency"]
 	}
 	tagsJSON, _ := json.Marshal(recurringExpense.Tags)
 	ruleQuery := `
@@ -464,7 +459,7 @@ func (s *databaseStore) UpdateRecurringExpense(id string, recurringExpense Recur
 	defer tx.Rollback()
 	recurringExpense.ID = id // Ensure ID is preserved
 	if recurringExpense.Currency == "" {
-		recurringExpense.Currency = s.defaults["currency"]
+		recurringExpense.Currency = s.defaults["defaultCurrency"]
 	}
 	tagsJSON, _ := json.Marshal(recurringExpense.Tags)
 	ruleQuery := `

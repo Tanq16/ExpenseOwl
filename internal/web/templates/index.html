@@ -316,20 +316,12 @@
                 .filter(exp => exp.convertedAmount < 0 && !disabledCategories.has(exp.category))
                 .reduce((sum, exp) => sum + Math.abs(exp.convertedAmount), 0);
 
-            // const totalsHtml = `
-            //     <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
-            //         <div style="display: flex; justify-content: space-between; align-items: center;">
-            //             <span>Total:</span>
-            //             <span class="amount">
-            //                 ${formatCurrency(activeTotalExpenses)}
-            //             </span>
-            //         </div>
-            //     </div>
-            // `;
-            
             const sumsExpenses = monthExpenses
+                .filter(exp => 
+                    exp.convertedAmount < 0 && 
+                    !disabledCategories.has(exp.category) && 
+                    exp.currency !== defaultCurrency)
                 .reduce((map, exp) => {
-                    if (exp.convertedAmount > 0 || exp.currency === defaultCurrency) return map;
                     if (!map[exp.currency]) map[exp.currency] = { original: 0, converted: 0 };
                     map[exp.currency].original += exp.amount;
                     map[exp.currency].converted += exp.convertedAmount;
@@ -365,20 +357,6 @@
             `;
 
             legendContainer.insertAdjacentHTML('beforeend', totalsHtml);
-
-            legendContainer.addEventListener('click', e => {
-                const element = e.target.closest('.toggle');
-                if (!element) return;
-
-                const showOriginal = element.dataset.show === 'original';
-                const amount  = showOriginal ? element.dataset.converted  : element.dataset.original;
-                const code = showOriginal ? element.dataset.convertedCode : element.dataset.originalCode;
-
-                element.dataset.show = showOriginal ? 'converted' : 'original';
-                element.innerHTML = `
-                    ${formatCurrency(amount, code)}
-                    <small style="opacity:.7;">${element.querySelector('small').textContent}</small>`;
-            });
         }
 
         function toggleCategory(category) {
@@ -393,25 +371,11 @@
         async function loadCurrencies(){
             const map = await fetch("/currency/catalog").then(r=>r.json());
             const opts = Object.keys(map).map(code => 
-                `<option value="${code}" ${code.toLowerCase() === defaultCurrency.toLowerCase() ? "selected" : ""}>
+                `<option value="${code}" ${code.toUpperCase() === defaultCurrency.toUpperCase() ? "selected" : ""}>
                     ${code} (${map[code]})
                 </option>`
             ).join('');
             document.getElementById("expenseCurrency").innerHTML = opts;
-        }
-
-        async function getRate(from, to, isoDate) {
-            const qs = new URLSearchParams({from, to, date: isoDate}).toString();
-            const response = await fetch("/fx/rate?"+ qs);
-            let rate;
-            if(!response.ok){
-                const errorMessage = await response.text();
-                console.error(`HTTP error! status: ${response.status}, message: ${errorMessage}  when fetching fx rate, default to 0.`)
-                rate = 0;
-            } else{
-                rate = (await response.json()).rate
-            }
-            return rate;
         }
 
         async function initialize() {
@@ -446,12 +410,13 @@
                     if (exp.tags) {
                         exp.tags.forEach(tag => allTags.add(tag));
                     }
-                    // If no currency, default to default currency. It is not updated yet because no "migration" code has been set yet.
+                    // Defaulting to default currency if empty in case import went wrong
                     if (exp.currency == "") {
                         exp.currency = defaultCurrency
                     }
                     const rate = exp.currency !== defaultCurrency ?
                         rates?.[exp.date.slice(0, 10)]?.[exp.currency]?.[defaultCurrency] ?? 0 : 1;
+                    // Creating a custom variable for UI purpose (pieChart, legends, etc)
                     exp.convertedAmount = exp.amount * rate;                
                 });
                 
@@ -554,6 +519,22 @@
                 }
             });
         }
+
+        // Action to switch back and forth between convertedAmount and originalAmount
+        document.getElementById('customLegend').addEventListener('click', e => {
+                const element = e.target.closest('.toggle');
+                if (!element) return;
+
+                const showOriginal = element.dataset.show === 'original';
+                const amount  = showOriginal ? element.dataset.converted  : element.dataset.original;
+                const code = showOriginal ? element.dataset.convertedCode : element.dataset.originalCode;
+
+                element.dataset.show = showOriginal ? 'converted' : 'original';
+                element.innerHTML = `
+                    ${formatCurrency(amount, code)}
+                    <small style="opacity:.7;">${element.querySelector('small').textContent}</small>`;
+            }
+        );
 
         document.getElementById('prevMonth').addEventListener('click', () => {
             currentDate.setMonth(currentDate.getMonth() - 1);

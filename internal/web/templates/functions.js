@@ -3,42 +3,7 @@ const colorPalette = [
     '#FFBE0B', '#FF006E', '#8338EC', '#3A86FF', 
     '#FB5607', '#38B000', '#9B5DE5', '#F15BB5'
 ];
-// const currencyBehaviors = {
-//     "usd": { symbol: "$", useComma: false, useDecimals: true },
-//     "eur": { symbol: "€", useComma: true, useDecimals: true },
-//     "gbp": { symbol: "£", useComma: false, useDecimals: true },
-//     "jpy": { symbol: "¥", useComma: false, useDecimals: false },
-//     "cny": { symbol: "¥", useComma: false, useDecimals: true },
-//     "krw": { symbol: "₩", useComma: false, useDecimals: false },
-//     "inr": { symbol: "₹", useComma: false, useDecimals: true },
-//     "rub": { symbol: "₽", useComma: true, useDecimals: true },
-//     "brl": { symbol: "R$", useComma: true, useDecimals: true },
-//     "zar": { symbol: "R", useComma: false, useDecimals: true },
-//     "aed": { symbol: "AED", useComma: false, useDecimals: true },
-//     "aud": { symbol: "A$", useComma: false, useDecimals: true },
-//     "cad": { symbol: "C$", useComma: false, useDecimals: true },
-//     "chf": { symbol: "Fr", useComma: false, useDecimals: true },
-//     "hkd": { symbol: "HK$", useComma: false, useDecimals: true },
-//     "sgd": { symbol: "S$", useComma: false, useDecimals: true },
-//     "thb": { symbol: "฿", useComma: false, useDecimals: true },
-//     "try": { symbol: "₺", useComma: true, useDecimals: true },
-//     "mxn": { symbol: "Mex$", useComma: false, useDecimals: true },
-//     "php": { symbol: "₱", useComma: false, useDecimals: true },
-//     "pln": { symbol: "zł", useComma: true, useDecimals: true },
-//     "sek": { symbol: "kr", useComma: false, useDecimals: true },
-//     "nzd": { symbol: "NZ$", useComma: false, useDecimals: true },
-//     "dkk": { symbol: "kr.", useComma: true, useDecimals: true },
-//     "idr": { symbol: "Rp", useComma: false, useDecimals: true },
-//     "ils": { symbol: "₪", useComma: false, useDecimals: true },
-//     "vnd": { symbol: "₫", useComma: true, useDecimals: false },
-//     "myr": { symbol: "RM", useComma: false, useDecimals: true },
-// };
 
-// let currentCurrency = 'usd';
-// let startDate = 1;
-// let currentDate = new Date();
-// let allExpenses = [];
-// let allTags = new Set();
 const currencyBehaviors = Object.create(null);
 
 function loadCurrenciesBehavior(currencyCatalog) {
@@ -161,19 +126,19 @@ function escapeHTML(str) {
     );
 }
 
-function getDateWithoutTime(dateObject) {
-  // Get the year, month, and day from the original Date object
-  const year = dateObject.getFullYear();
-  const month = dateObject.getMonth(); // Month is 0-indexed
-  const day = dateObject.getDate();
+// function getDateWithoutTime(dateObject) {
+//   // Get the year, month, and day from the original Date object
+//   const year = dateObject.getFullYear();
+//   const month = dateObject.getMonth(); // Month is 0-indexed
+//   const day = dateObject.getDate();
 
-  // Create a new Date object with only the year, month, and day
-  // Hours, minutes, seconds, and milliseconds will default to 0
-  return new Date(year, month, day);
-}
+//   // Create a new Date object with only the year, month, and day
+//   // Hours, minutes, seconds, and milliseconds will default to 0
+//   return new Date(year, month, day);
+// }
 
 function formatToConvertedAmount(amount, rate, currency = defaultCurrency) {    
-    return rate == 0 ? "Nan" : formatCurrency(amount * rate, currency);
+    return rate == 0 ? "" : formatCurrency(amount * rate, currency);
 }
 
 function extractRateParams(expenses, defaultQuote) {
@@ -181,8 +146,9 @@ function extractRateParams(expenses, defaultQuote) {
   defaultQuote = defaultQuote.toUpperCase();
 
   for (const exp of expenses) {
-    //const day  =  new Date(exp.date).toISOString().slice(0, 10);
-    const day  =  exp.date.slice(0, 10);
+    // it is better to convert to a date object before in case the string was not in a good format
+    const day  =  new Date(exp.date).toISOString().slice(0, 10);
+    //const day  =  exp.date.slice(0, 10);
     const base = (exp.currency || "").toUpperCase();
     if (!base || base == defaultQuote) continue;                     // skip if unknown base
 

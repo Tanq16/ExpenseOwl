@@ -6,8 +6,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"slices"
-	"strings"
 	"sync"
 	"time"
 
@@ -206,7 +204,7 @@ func (s *jsonStore) GetDefaultCurrency() (string, error) {
 }
 
 func (s *jsonStore) UpdateDefaultCurrency(currency string) error {
-	if !slices.Contains(supportedCurrencies, strings.ToLower(currency)) {
+	if !IsValidCurrency(currency) {
 		return fmt.Errorf("invalid currency: %s", currency)
 	}
 	s.mu.Lock()
@@ -216,6 +214,7 @@ func (s *jsonStore) UpdateDefaultCurrency(currency string) error {
 		return fmt.Errorf("failed to read config file: %v", err)
 	}
 	data.DefaultCurrency = currency
+	s.defaults["defaultCurrency"] = currency
 	return s.writeConfigFile(s.configPath, data)
 }
 
@@ -238,7 +237,7 @@ func (s *jsonStore) UpdateStartDate(startDate int) error {
 		return fmt.Errorf("failed to read config file: %v", err)
 	}
 	data.StartDate = startDate
-	s.defaults["start_date"] = fmt.Sprintf("%d", startDate)
+	s.defaults["startDate"] = fmt.Sprintf("%d", startDate)
 	return s.writeConfigFile(s.configPath, data)
 }
 
@@ -274,7 +273,7 @@ func (s *jsonStore) AddRecurringExpense(recurringExpense RecurringExpense) error
 		recurringExpense.ID = uuid.New().String()
 	}
 	if recurringExpense.Currency == "" {
-		recurringExpense.Currency = s.defaults["currency"]
+		recurringExpense.Currency = s.defaults["defaultCurrency"]
 	}
 	config.RecurringExpenses = append(config.RecurringExpenses, recurringExpense)
 	if err := s.writeConfigFile(s.configPath, config); err != nil {
@@ -338,7 +337,7 @@ func (s *jsonStore) UpdateRecurringExpense(id string, recurringExpense Recurring
 		if r.ID == id {
 			recurringExpense.ID = id // Ensure ID is preserved
 			if recurringExpense.Currency == "" {
-				recurringExpense.Currency = s.defaults["currency"]
+				recurringExpense.Currency = s.defaults["defaultCurrency"]
 			}
 			config.RecurringExpenses[i] = recurringExpense
 			found = true
@@ -401,10 +400,6 @@ func (s *jsonStore) GetExpense(id string) (Expense, error) {
 }
 
 func (s *jsonStore) AddExpense(expense Expense) error {
-	defaultCurrency, err := s.GetDefaultCurrency()
-	if err != nil {
-		return fmt.Errorf("failed to get default currency from config: %v", err)
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	data, err := s.readExpensesFile(s.filePath)
@@ -416,116 +411,17 @@ func (s *jsonStore) AddExpense(expense Expense) error {
 		expense.ID = uuid.New().String()
 	}
 	if expense.Currency == "" {
-		expense.Currency = s.defaults["currency"]
+		expense.Currency = s.defaults["defaultCurrency"]
 	}
 	if expense.Date.IsZero() {
 		expense.Date = time.Now()
 	}
-	if expense.Currency != defaultCurrency {
+	if expense.Currency != s.defaults["defaultCurrency"] {
 		go s.fetchRateForExpense(expense)
 	}
 	data.Expenses = append(data.Expenses, expense)
 	log.Printf("Added expense with ID %s\n", expense.ID)
 	return s.writeExpensesFile(s.filePath, data)
-}
-
-func (s *jsonStore) fetchRateForExpense(expense Expense) error {
-	rates, err := fx.RatesOn(expense.Currency, expense.Date)
-	if err != nil {
-		return fmt.Errorf("failed to get rate: %v", err)
-	}
-	KeepOnlyValidCurrencies(rates, currencyCatalog)
-	return s.updateRates(expense.Date, expense.Currency, rates)
-}
-
-func (s *jsonStore) GetRate(day time.Time, base, quote string) (float64, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	data, err := s.readRatesFile(s.ratesPath)
-	if err != nil {
-		return 0, fmt.Errorf("failed to read storage file: %v", err)
-	}
-	dateStr := fx.FormatToString(day)
-	var result float64
-	result, exist := data[dateStr][base][quote]
-	if !exist {
-		return 0, fmt.Errorf("rate %s→%s (%s) missing", base, quote, fx.FormatToString(day))
-	}
-	return result, nil
-}
-
-func (s *jsonStore) GetRates(ratesParams map[string]map[string][]string) (Rates, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	data, err := s.readRatesFile(s.ratesPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read storage file: %v", err)
-	}
-
-	notFound := make(map[string]map[string]struct{})
-	rates := make(Rates, len(ratesParams))
-
-	for day, baseMap := range ratesParams {
-		rates[day] = make(map[string]map[string]float64)
-		notFound[day] = make(map[string]struct{})
-		for base, quotes := range baseMap {
-			notFound[day][base] = struct{}{}
-			rates[day][base] = make(map[string]float64)
-			for _, quote := range quotes {
-				if rate, exist := data[day][base][quote]; exist {
-					rates[day][base][quote] = rate
-					delete(notFound[day], base)
-				}
-			}
-		}
-	}
-
-	// ── 3) background fetch for missing rates  ────────────────────────────
-	for day, missingBases := range notFound {
-		for base := range missingBases {
-			dayStr, err := fx.FormatToTime(day)
-			if err != nil {
-				log.Printf("Error formating date string to time: %v", err)
-				return rates, nil
-			}
-			go s.fetchRateAndUpdateJson(base, dayStr)
-		}
-	}
-	return rates, nil
-}
-
-func (s *jsonStore) fetchRateAndUpdateJson(currency string, date time.Time) error {
-	rates, err := fx.RatesOn(currency, date)
-	if err != nil {
-		return fmt.Errorf("failed to get rate: %v", err)
-	}
-	KeepOnlyValidCurrencies(rates, currencyCatalog)
-	return s.updateRates(date, currency, rates)
-}
-
-func (s *jsonStore) updateRates(date time.Time, currency string, rates map[string]float64) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	data, err := s.readRatesFile(s.ratesPath)
-	if err != nil {
-		return fmt.Errorf("failed to read storage file: %v", err)
-	}
-	toUpdate := false
-	var dateStr = fx.FormatToString(date)
-
-	if _, exists := data[dateStr]; !exists {
-		data[dateStr] = make(map[string]map[string]float64)
-	}
-	if _, exists := data[dateStr][currency]; !exists {
-		data[dateStr][currency] = rates
-		toUpdate = true
-	}
-	if !toUpdate {
-		log.Println("No rates to update")
-		return nil
-	}
-	log.Printf("Updated rates with %s@%s\n", currency, dateStr)
-	return s.writeRatesFile(s.ratesPath, data)
 }
 
 func (s *jsonStore) RemoveExpense(id string) error {
@@ -609,7 +505,7 @@ func (s *jsonStore) UpdateExpense(id string, expense Expense) error {
 			data.Expenses[i] = expense
 			data.Expenses[i].ID = id
 			if data.Expenses[i].Currency == "" {
-				data.Expenses[i].Currency = s.defaults["currency"]
+				data.Expenses[i].Currency = s.defaults["defaultCurrency"]
 			}
 			found = true
 			break
@@ -621,4 +517,98 @@ func (s *jsonStore) UpdateExpense(id string, expense Expense) error {
 	}
 	log.Printf("Edited expense with ID %s\n", id)
 	return s.writeExpensesFile(s.filePath, data)
+}
+
+func (s *jsonStore) GetRate(day time.Time, base, quote string) (float64, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	data, err := s.readRatesFile(s.ratesPath)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read storage file: %v", err)
+	}
+	dateStr := fx.FormatToString(day)
+	var result float64
+	result, exist := data[dateStr][base][quote]
+	if !exist {
+		return 0, fmt.Errorf("rate %s→%s (%s) missing", base, quote, fx.FormatToString(day))
+	}
+	return result, nil
+}
+
+func (s *jsonStore) GetRates(ratesParams map[string]map[string][]string) (Rates, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	data, err := s.readRatesFile(s.ratesPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read storage file: %v", err)
+	}
+
+	notFound := make(map[string]map[string]struct{})
+	rates := make(Rates, len(ratesParams))
+
+	for day, baseMap := range ratesParams {
+		rates[day] = make(map[string]map[string]float64)
+		notFound[day] = make(map[string]struct{})
+		for base, quotes := range baseMap {
+			notFound[day][base] = struct{}{}
+			rates[day][base] = make(map[string]float64)
+			for _, quote := range quotes {
+				if rate, exist := data[day][base][quote]; exist {
+					rates[day][base][quote] = rate
+					delete(notFound[day], base)
+				}
+			}
+		}
+	}
+
+	// ── 3) background fetch for missing rates  ────────────────────────────
+	for day, missingBases := range notFound {
+		for base := range missingBases {
+			dayStr, err := fx.FormatToTime(day)
+			if err != nil {
+				log.Printf("Error formating date string to time: %v", err)
+				return rates, nil
+			}
+			go s.fetchRateAndUpdateJson(base, dayStr)
+		}
+	}
+	return rates, nil
+}
+
+func (s *jsonStore) fetchRateForExpense(expense Expense) error {
+	return s.fetchRateAndUpdateJson(expense.Currency, expense.Date)
+}
+
+func (s *jsonStore) fetchRateAndUpdateJson(currency string, date time.Time) error {
+	rates, err := fx.RatesOn(currency, date)
+	if err != nil {
+		return fmt.Errorf("failed to get rate: %v", err)
+	}
+	KeepOnlyValidCurrencies(rates, currencyCatalog)
+	return s.updateRates(date, currency, rates)
+}
+
+func (s *jsonStore) updateRates(date time.Time, currency string, rates map[string]float64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	data, err := s.readRatesFile(s.ratesPath)
+	if err != nil {
+		return fmt.Errorf("failed to read storage file: %v", err)
+	}
+	toUpdate := false
+	var dateStr = fx.FormatToString(date)
+
+	if _, exists := data[dateStr]; !exists {
+		data[dateStr] = make(map[string]map[string]float64)
+	}
+	if _, exists := data[dateStr][currency]; !exists {
+		data[dateStr][currency] = rates
+		toUpdate = true
+	}
+	if !toUpdate {
+		log.Println("No rates to update")
+		return nil
+	}
+	log.Printf("Updated rates with %s@%s\n", currency, dateStr)
+	return s.writeRatesFile(s.ratesPath, data)
 }

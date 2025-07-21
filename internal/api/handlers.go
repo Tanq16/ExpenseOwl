@@ -108,14 +108,15 @@ func (h *Handler) GetCurrencyCatalog(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, currencyCatalog)
 }
 
-func (h *Handler) GetCurrencyCatalogFull(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeJSON(w, http.StatusMethodNotAllowed, ErrorResponse{Error: "Method not allowed"})
-		return
-	}
-	currencyCatalog := h.storage.GetCurrencyCatalog()
-	writeJSON(w, http.StatusOK, currencyCatalog)
-}
+// For later use if we use import the .json file into backend
+// func (h *Handler) GetCurrencyCatalogFull(w http.ResponseWriter, r *http.Request) {
+// 	if r.Method != http.MethodGet {
+// 		writeJSON(w, http.StatusMethodNotAllowed, ErrorResponse{Error: "Method not allowed"})
+// 		return
+// 	}
+// 	currencyCatalog := h.storage.GetCurrencyCatalog()
+// 	writeJSON(w, http.StatusOK, currencyCatalog)
+// }
 
 func (h *Handler) GetDefaultCurrency(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -379,7 +380,7 @@ func (h *Handler) DeleteRecurringExpense(w http.ResponseWriter, r *http.Request)
 }
 
 // ------------------------------------------------------------
-// FX Rates
+// FX Rates Handlers
 // ------------------------------------------------------------
 
 // GET /fx/rate?from=eur&to=usd&date=2025-07-08  →  {"rate":0.9213}
@@ -419,12 +420,7 @@ func (h *Handler) GetRates(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Invalid request body"})
 		return
 	}
-	//ratesParams := make(map[time.Time]map[string][]string)
-	// for key, value := range ratesRequest {
-	//     day := key.Format("2006-01-02") // tronque l'heure
-	//     out[day] = append(out[day], e)
-	// }
-
+	
 	rates, err := h.storage.GetRates(ratesRequest)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Failed to get rates"})

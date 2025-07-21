@@ -100,18 +100,18 @@ type Expense struct {
 //		YYYY-MM-DD    currency   quote ➜ rate
 type Rates map[string]map[string]map[string]float64
 
-type FxRate struct {
-	Day           time.Time // 2025-07-08
-	BaseCurrency  string    // "usd"
-	QuoteCurrency string    // "eur"
-	Rate          float64
-}
+// type FxRate struct {
+// 	Day           time.Time // 2025-07-08
+// 	BaseCurrency  string    // "usd"
+// 	QuoteCurrency string    // "eur"
+// 	Rate          float64
+// }
 
-type FxRates struct {
-	Days   []time.Time `json:"days"`
-	Bases  []string    `json:"bases"`
-	Quotes []string    `json:"quotes"`
-}
+// type FxRates struct {
+// 	Days   []time.Time `json:"days"`
+// 	Bases  []string    `json:"bases"`
+// 	Quotes []string    `json:"quotes"`
+// }
 
 func (c *Config) SetBaseConfig() {
 	c.Categories = defaultCategories

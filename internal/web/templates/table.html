@@ -131,122 +131,7 @@
         let selectedTags = new Set();
         let currencyCatalog = [];
         let rates = []; //Map of rates
-        
-        // function escapeHTML(str) {
-        //     if (typeof str !== 'string') return str;
-        //     return str.replace(/[&<>'"]/g, 
-        //         tag => ({
-        //             '&': '&amp;',
-        //             '<': '&lt;',
-        //             '>': '&gt;',
-        //             "'": '&#39;',
-        //             '"': '&quot;'
-        //         }[tag] || tag)
-        //     );
-        // }
-
-        // function formatCurrency(amount) {
-        //     const behavior = currencyBehaviors[currentCurrency] || { symbol: '$', useComma: false, useDecimals: true };
-        //     const isNegative = amount < 0;
-        //     const absAmount = Math.abs(amount);
-        //     const options = {
-        //         minimumFractionDigits: behavior.useDecimals ? 2 : 0,
-        //         maximumFractionDigits: behavior.useDecimals ? 2 : 0,
-        //     };
-        //     let formattedAmount = new Intl.NumberFormat(behavior.useComma ? 'de-DE' : 'en-US', options).format(absAmount);
-        //     const postfixCurrencies = new Set(['kr', 'kr.', 'Fr', 'zł']);
-        //     let result;
-        //     if (postfixCurrencies.has(behavior.symbol)) {
-        //         result = `${formattedAmount} ${behavior.symbol}`;
-        //     } else {
-        //         result = `${behavior.symbol}${formattedAmount}`;
-        //     }
-        //     return isNegative ? `-${result}` : result;
-        // }
-
-        // function formatMonth(date) {
-        //     return date.toLocaleDateString('en-US', { 
-        //         year: 'numeric',
-        //         month: 'long',
-        //         timeZone: getUserTimeZone()
-        //     });
-        // }
-
-        // function getISODateWithLocalTime(dateInput) {
-        //     const [year, month, day] = dateInput.split('-').map(Number);
-        //     const now = new Date();
-        //     const hours = now.getHours();
-        //     const minutes = now.getMinutes();
-        //     const seconds = now.getSeconds();
-        //     const localDateTime = new Date(year, month - 1, day, hours, minutes, seconds);
-        //     return localDateTime.toISOString();
-        // }
-
-        // function getUserTimeZone() {
-        //     return Intl.DateTimeFormat().resolvedOptions().timeZone;
-        // }
-
-        // function formatDateFromUTC(utcDateString) {
-        //     const date = new Date(utcDateString);
-        //     return date.toLocaleDateString('en-US', {
-        //         month: 'short',
-        //         day: 'numeric',
-        //         year: 'numeric',
-        //         hour: '2-digit',
-        //         minute: '2-digit',
-        //         timeZoneName: 'short'
-        //     });
-        // }
-
-        // function updateMonthDisplay() {
-        //     document.getElementById('currentMonth').textContent = formatMonth(currentDate);
-        // }
-        
-        // function getMonthBounds(date) {
-        //     const localDate = new Date(date);
-        //     if (startDate === 1) {
-        //         const startLocal = new Date(localDate.getFullYear(), localDate.getMonth(), 1);
-        //         const endLocal = new Date(localDate.getFullYear(), localDate.getMonth() + 1, 0, 23, 59, 59, 999);
-        //         return { start: new Date(startLocal.toISOString()), end: new Date(endLocal.toISOString()) };
-        //     }
             
-        //     let thisMonthStartDate = startDate;
-        //     let prevMonthStartDate = startDate;
-            
-        //     const currentMonth = localDate.getMonth();
-        //     const currentYear = localDate.getFullYear();
-        //     const daysInCurrentMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-        //     thisMonthStartDate = Math.min(thisMonthStartDate, daysInCurrentMonth);
-            
-        //     const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-        //     const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-        //     const daysInPrevMonth = new Date(prevYear, prevMonth + 1, 0).getDate();
-        //     prevMonthStartDate = Math.min(prevMonthStartDate, daysInPrevMonth);
-
-        //     if (localDate.getDate() < thisMonthStartDate) {
-        //         const startLocal = new Date(prevYear, prevMonth, prevMonthStartDate);
-        //         const endLocal = new Date(currentYear, currentMonth, thisMonthStartDate - 1, 23, 59, 59, 999);
-        //         return { start: new Date(startLocal.toISOString()), end: new Date(endLocal.toISOString()) };
-        //     } else {
-        //         const nextMonth = currentMonth === 11 ? 0 : currentMonth + 1;
-        //         const nextYear = currentMonth === 11 ? currentYear + 1 : currentYear;
-        //         const daysInNextMonth = new Date(nextYear, nextMonth + 1, 0).getDate();
-        //         let nextMonthStartDate = Math.min(startDate, daysInNextMonth);
-
-        //         const startLocal = new Date(currentYear, currentMonth, thisMonthStartDate);
-        //         const endLocal = new Date(nextYear, nextMonth, nextMonthStartDate - 1, 23, 59, 59, 999);
-        //         return { start: new Date(startLocal.toISOString()), end: new Date(endLocal.toISOString()) };
-        //     }
-        // }
-        
-        // function getMonthExpenses(expenses) {
-        //     const { start, end } = getMonthBounds(currentDate);
-        //     return expenses.filter(exp => {
-        //         const expDate = new Date(exp.date);
-        //         return expDate >= start && expDate <= end;
-        //     }).sort((a, b) => new Date(b.date) - new Date(a.date));
-        // }
-
         function createTable(expenses) {
             if (!expenses || expenses.length === 0) {
                 const message = document.getElementById('showAllToggle').checked ? 
@@ -334,7 +219,7 @@
             });
         }
 
-        function editExpense(id, name, category, amount, tags, date) {
+        function editExpense(id, name, category, amount, tags, currency, date) {
             const isGain = amount > 0;
             document.getElementById('name').value = name;
             document.getElementById('category').value = category;
@@ -472,6 +357,10 @@
                     if (exp.tags) {
                         exp.tags.forEach(tag => allTags.add(tag));
                     }
+                    // Defaulting to default currency if empty in case import went wrong
+                    if (exp.currency == "") {
+                        exp.currency = defaultCurrency
+                    }
                 });
 
                 loadCurrenciesBehavior(currencyCatalog);
@@ -592,6 +481,7 @@
                 setTimeout(() => {
                     messageDiv.textContent = '';
                     messageDiv.className = 'form-message';
+                    // avoid a refresh to show converted amounts if already processed
                     initialize();
                 }, 3000);
             } catch (error) {

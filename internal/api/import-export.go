@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -31,7 +30,7 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	defer writer.Flush()
 
 	// Write header
-	headers := []string{"ID", "Name", "Category", "Amount", "Date", "Tags"}
+	headers := []string{"ID", "Name", "Category", "Amount", "Currency", "Date", "Tags"}
 	if err := writer.Write(headers); err != nil {
 		log.Printf("API ERROR: Failed to write CSV header: %v\n", err)
 		return
@@ -45,6 +44,7 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 			expense.Category,
 			// expense.Currency,
 			strconv.FormatFloat(expense.Amount, 'f', 2, 64),
+			expense.Currency,
 			expense.Date.Format(time.RFC3339),
 			strings.Join(expense.Tags, ","),
 		}
@@ -113,7 +113,7 @@ func (h *Handler) ImportCSV(w http.ResponseWriter, r *http.Request) {
 	var newCategories []string
 	var importedCount, skippedCount int
 	// TODO: might be worth setting default currency when we have currency updation behavior
-	currencyVal, err := h.storage.GetCurrency()
+	currencyVal, err := h.storage.GetDefaultCurrency()
 	if err != nil {
 		log.Printf("Error: Could not retrieve currency, shutting down import: %v\n", err)
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Could not retrieve currency"})
@@ -141,12 +141,12 @@ func (h *Handler) ImportCSV(w http.ResponseWriter, r *http.Request) {
 		localCurrency := currencyVal
 		if currencyExists {
 			currency := record[currencyIdx]
-			if !slices.Contains(storage.SupportedCurrencies, currency) {
+			if !storage.IsValidCurrency(currency) {
 				log.Printf("Warning: Skipping row %d due to invalid currency: %s\n", i+2, currency)
 				skippedCount++
 				continue
 			}
-			localCurrency = strings.TrimSpace(currency)
+			localCurrency = strings.ToUpper(strings.TrimSpace(currency))
 		}
 
 		amount, err := strconv.ParseFloat(record[colMap["amount"]], 64)
@@ -225,6 +225,18 @@ func (h *Handler) ImportOldCSV(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Could not parse multipart form"})
 		return
 	}
+
+	currency := r.FormValue("currency")
+	if currency == "" {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Error retrieving the currency"})
+		return
+	}
+	if !storage.IsValidCurrency(currency) {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Invalid currency"})
+		return
+	}
+	currency = strings.ToUpper(strings.TrimSpace(currency))
+
 	file, _, err := r.FormFile("file")
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Error retrieving the file"})
@@ -299,6 +311,7 @@ func (h *Handler) ImportOldCSV(w http.ResponseWriter, r *http.Request) {
 		expense := storage.Expense{
 			Name:     strings.TrimSpace(record[colMap["name"]]),
 			Category: category,
+			Currency: currency,
 			Amount:   amountUpdated,
 			Date:     date,
 		}

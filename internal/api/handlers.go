@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/tanq16/expenseowl/internal/fx"
 	"github.com/tanq16/expenseowl/internal/storage"
 	"github.com/tanq16/expenseowl/internal/web"
 )
@@ -98,12 +99,31 @@ func (h *Handler) UpdateCategories(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "success"})
 }
 
-func (h *Handler) GetCurrency(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) GetCurrencyCatalog(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeJSON(w, http.StatusMethodNotAllowed, ErrorResponse{Error: "Method not allowed"})
 		return
 	}
-	currency, err := h.storage.GetCurrency()
+	currencyCatalog := h.storage.GetCurrencyCatalog()
+	writeJSON(w, http.StatusOK, currencyCatalog)
+}
+
+// For later use if we use import the .json file into backend
+// func (h *Handler) GetCurrencyCatalogFull(w http.ResponseWriter, r *http.Request) {
+// 	if r.Method != http.MethodGet {
+// 		writeJSON(w, http.StatusMethodNotAllowed, ErrorResponse{Error: "Method not allowed"})
+// 		return
+// 	}
+// 	currencyCatalog := h.storage.GetCurrencyCatalog()
+// 	writeJSON(w, http.StatusOK, currencyCatalog)
+// }
+
+func (h *Handler) GetDefaultCurrency(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, ErrorResponse{Error: "Method not allowed"})
+		return
+	}
+	currency, err := h.storage.GetDefaultCurrency()
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Failed to get currency"})
 		log.Printf("API ERROR: Failed to get currency: %v\n", err)
@@ -112,7 +132,7 @@ func (h *Handler) GetCurrency(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, currency)
 }
 
-func (h *Handler) UpdateCurrency(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) UpdateDefaultCurrency(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
 		writeJSON(w, http.StatusMethodNotAllowed, ErrorResponse{Error: "Method not allowed"})
 		return
@@ -122,7 +142,7 @@ func (h *Handler) UpdateCurrency(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Invalid request body"})
 		return
 	}
-	if err := h.storage.UpdateCurrency(currency); err != nil {
+	if err := h.storage.UpdateDefaultCurrency(currency); err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
 		log.Printf("API ERROR: Failed to update currency: %v\n", err)
 		return
@@ -357,6 +377,57 @@ func (h *Handler) DeleteRecurringExpense(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "success"})
+}
+
+// ------------------------------------------------------------
+// FX Rates Handlers
+// ------------------------------------------------------------
+
+// GET /fx/rate?from=eur&to=usd&date=2025-07-08  →  {"rate":0.9213}
+func (h *Handler) GetRate(w http.ResponseWriter, r *http.Request) {
+	from := r.URL.Query().Get("from")
+	to := r.URL.Query().Get("to")
+	date := r.URL.Query().Get("date") // optional
+	log.Println("from %n to %n date %n", from, to, date)
+	var day time.Time
+	if date != "" {
+		var err error
+		day, err = time.Parse(time.RFC3339Nano, date)
+		if err != nil {
+			http.Error(w, "bad date format", http.StatusBadRequest)
+			return
+		}
+	}
+
+	rate, err := fx.Rate(from, to, day) // day==zero → today
+	if err != nil {                     // e.g. unknown code
+		http.Error(w, err.Error(), http.StatusBadGateway)
+		return
+	}
+	json.NewEncoder(w).Encode(struct {
+		Rate float64 `json:"rate"`
+	}{rate})
+}
+
+
+func (h *Handler) GetRates(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, ErrorResponse{Error: "Method not allowed"})
+		return
+	}
+	var ratesRequest map[string]map[string][]string
+	if err := json.NewDecoder(r.Body).Decode(&ratesRequest); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "Invalid request body"})
+		return
+	}
+	
+	rates, err := h.storage.GetRates(ratesRequest)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "Failed to get rates"})
+		log.Printf("API ERROR: Failed to get rates: %v\n", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, rates)
 }
 
 // ------------------------------------------------------------

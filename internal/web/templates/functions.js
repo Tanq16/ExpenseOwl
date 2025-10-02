@@ -3,57 +3,30 @@ const colorPalette = [
     '#FFBE0B', '#FF006E', '#8338EC', '#3A86FF', 
     '#FB5607', '#38B000', '#9B5DE5', '#F15BB5'
 ];
-const currencyBehaviors = {
-    usd: {symbol: "$", useComma: false, useDecimals: true, useSpace: false, right: false},
-    eur: {symbol: "€", useComma: true, useDecimals: true, useSpace: false, right: false},
-    gbp: {symbol: "£", useComma: false, useDecimals: true, useSpace: false, right: false},
-    jpy: {symbol: "¥", useComma: false, useDecimals: false, useSpace: false, right: false},
-    cny: {symbol: "¥", useComma: false, useDecimals: true, useSpace: false, right: false},
-    krw: {symbol: "₩", useComma: false, useDecimals: false, useSpace: false, right: false},
-    inr: {symbol: "₹", useComma: false, useDecimals: true, useSpace: false, right: false},
-    rub: {symbol: "₽", useComma: true, useDecimals: true, useSpace: false, right: false},
-    brl: {symbol: "R$", useComma: true, useDecimals: true, useSpace: false, right: false},
-    zar: {symbol: "R", useComma: false, useDecimals: true, useSpace: true, right: true},
-    aed: {symbol: "AED", useComma: false, useDecimals: true, useSpace: true, right: true},
-    aud: {symbol: "A$", useComma: false, useDecimals: true, useSpace: false, right: false},
-    cad: {symbol: "C$", useComma: false, useDecimals: true, useSpace: false, right: false},
-    chf: {symbol: "Fr", useComma: false, useDecimals: true, useSpace: true, right: true},
-    hkd: {symbol: "HK$", useComma: false, useDecimals: true, useSpace: false, right: false},
-    bdt: {symbol: "৳", useComma: false, useDecimals: true, useSpace: false, right: false},
-    sgd: {symbol: "S$", useComma: false, useDecimals: true, useSpace: false, right: false},
-    thb: {symbol: "฿", useComma: false, useDecimals: true, useSpace: false, right: false},
-    try: {symbol: "₺", useComma: true, useDecimals: true, useSpace: false, right: false},
-    mxn: {symbol: "Mex$", useComma: false, useDecimals: true, useSpace: false, right: false},
-    php: {symbol: "₱", useComma: false, useDecimals: true, useSpace: false, right: false},
-    pln: {symbol: "zł", useComma: true, useDecimals: true, useSpace: true, right: true},
-    sek: {symbol: "kr", useComma: false, useDecimals: true, useSpace: true, right: true},
-    nzd: {symbol: "NZ$", useComma: false, useDecimals: true, useSpace: false, right: false},
-    dkk: {symbol: "kr.", useComma: true, useDecimals: true, useSpace: true, right: true},
-    idr: {symbol: "Rp", useComma: false, useDecimals: true, useSpace: true, right: true},
-    ils: {symbol: "₪", useComma: false, useDecimals: true, useSpace: false, right: false},
-    vnd: {symbol: "₫", useComma: true, useDecimals: false, useSpace: true, right: true},
-    myr: {symbol: "RM", useComma: false, useDecimals: true, useSpace: false, right: false},
-    mad: {symbol: "DH", useComma: false, useDecimals: true, useSpace: true, right: true},
-};
 
-function formatCurrency(amount) {
-    const behavior = currencyBehaviors[currentCurrency] || {
-        symbol: "$",
-        useComma: false,
-        useDecimals: true,
-        useSpace: false,
-        right: false,
+const currencyBehaviors = Object.create(null);
+
+function loadCurrenciesBehavior(currencyCatalog) {
+    currencyCatalog.forEach(obj => {
+    currencyBehaviors[obj.code.toUpperCase()] = {
+      symbol:       obj.symbol,
+      decimals:     obj.decimals,
+      commaDecimal: obj.commaDecimal,
+      postFixCurrency: obj.postFixCurrency
     };
+  });
+}
+
+function formatCurrency(amount, currency = defaultCurrency) {
+    const behavior = currencyBehaviors[currency.toUpperCase()] || { symbol: '$', commaDecimal: false, decimals: 2 };
     const isNegative = amount < 0;
     const absAmount = Math.abs(amount);
     const options = {
-        minimumFractionDigits: behavior.useDecimals ? 2 : 0,
-        maximumFractionDigits: behavior.useDecimals ? 2 : 0,
+        minimumFractionDigits: behavior.decimals,
+        maximumFractionDigits: behavior.decimals
     };
-    let formattedAmount = new Intl.NumberFormat(behavior.useComma ? "de-DE" : "en-US",options).format(absAmount);
-    let result = behavior.right
-        ? `${formattedAmount}${behavior.useSpace ? " " : ""}${behavior.symbol}`
-        : `${behavior.symbol}${behavior.useSpace ? " " : ""}${formattedAmount}`;
+    let formattedAmount = new Intl.NumberFormat(behavior.commaDecimal ? 'de-DE' : 'en-US', options).format(absAmount);
+    let result = behavior.postFixCurrency ? `${formattedAmount} ${behavior.symbol}` : `${behavior.symbol}${formattedAmount}`;
     return isNegative ? `-${result}` : result;
 }
 
@@ -151,4 +124,36 @@ function escapeHTML(str) {
             '"': '&quot;'
         }[tag] || tag)
     );
+}
+
+// function getDateWithoutTime(dateObject) {
+//   // Get the year, month, and day from the original Date object
+//   const year = dateObject.getFullYear();
+//   const month = dateObject.getMonth(); // Month is 0-indexed
+//   const day = dateObject.getDate();
+
+//   // Create a new Date object with only the year, month, and day
+//   // Hours, minutes, seconds, and milliseconds will default to 0
+//   return new Date(year, month, day);
+// }
+
+function formatToConvertedAmount(amount, rate, currency = defaultCurrency) {    
+    return rate == 0 ? "" : formatCurrency(amount * rate, currency);
+}
+
+function extractRateParams(expenses, defaultQuote) {
+  const ratesParams = Object.create(null);         
+  defaultQuote = defaultQuote.toUpperCase();
+
+  for (const exp of expenses) {
+    // it is better to convert to a date object before in case the string was not in a good format
+    const day  =  new Date(exp.date).toISOString().slice(0, 10);
+    //const day  =  exp.date.slice(0, 10);
+    const base = (exp.currency || "").toUpperCase();
+    if (!base || base == defaultQuote) continue;                     // skip if unknown base
+
+    if (!ratesParams[day]) ratesParams[day] = Object.create(null);
+    ratesParams[day][base] = [defaultQuote];                      // {day:{base:quote}}
+  }
+  return ratesParams;
 }

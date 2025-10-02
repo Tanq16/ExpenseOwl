@@ -37,7 +37,7 @@
         </header>
 
         <div class="info-field">
-            Version: <a href="https://github.com/tanq16/expenseowl/releases/latest" target="_blank" rel="noopener noreferrer">v4.0</a>
+            Version: <a id="version-link" href="https://github.com/tanq16/expenseowl/releases" target="_blank" rel="noopener noreferrer">dev</a>
             <span class="separator">|</span>
             <a href="https://github.com/tanq16/expenseowl/blob/main/README.md" target="_blank" rel="noopener noreferrer">Documentation</a>
             <span class="separator">|</span>
@@ -133,6 +133,10 @@
                     <select id="recurringCategory" required></select>
                 </div>
                 <div class="form-group">
+                    <label for="recurringCurrency">Currency</label>
+                    <select id="recurringCurrency" required></select>
+                </div>
+                <div class="form-group">
                     <label for="tags-input">Tags</label>
                     <div class="tags-input-container">
                         <div id="selected-tags" class="selected-tags"></div>
@@ -207,6 +211,10 @@
                     <select id="editRecurringCategory" required></select>
                 </div>
                 <div class="form-group">
+                    <label for="editRecurringCurrency">Currency</label>
+                    <select id="editRecurringCurrency" required></select>
+                </div>
+                <div class="form-group">
                     <label for="edit-tags-input">Tags</label>
                     <div class="tags-input-container">
                         <div id="edit-selected-tags" class="selected-tags"></div>
@@ -244,18 +252,35 @@
         </div>
     </div>
 
+    <div id="editCurrencyImportOldCsv" class="modal">
+        <div class="modal-content">
+            <h3>Chose Expenses Currency</h3>
+            <form id="editCurrencyImportOldCsvForm" class="expense-form recurring-expense-form">                
+                <div class="form-group">
+                    <label for="editImportCurrency">Currency</label>
+                    <select id="editImportCurrency" required></select>
+                </div>                                            
+            </form>
+            <div class="modal-buttons">
+                <button id="confirmImportCurrencyButton" class="modal-button">Confirm</button>
+                <button id="cancelImportCurrencyButton" class="modal-button">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/functions.js"></script>
     <script>
         let categories = [];
         let allTags = new Set();
         let addFormSelectedTags = new Set();
         let editFormSelectedTags = new Set();
-        let currentCurrency = "usd";
+        let defaultCurrency = "USD";
         let currentStartDate = 1;
         let draggedItem = null;
         let recurringExpenses = [];
         let recurringExpenseToDelete = null;
         let recurringExpenseToEdit = null;
+        let currencyCatalog = [];
 
         function showMessage(elementId, message, isSuccess) {
             const messageDiv = document.getElementById(elementId);
@@ -482,12 +507,24 @@
 
         // --- Currency & Start Date ---
         function populateCurrencySelect() {
-            const select = document.getElementById('currencySelect');
-            select.innerHTML = Object.keys(currencyBehaviors).map(code => 
-                `<option value="${code}" ${code === currentCurrency ? 'selected' : ''}>
-                    ${code.toUpperCase()} (${currencyBehaviors[code].symbol})
+            const settingsOpts = currencyCatalog.map(({ code, symbol, name }) =>
+                `<option value="${code}"
+                    ${code.toUpperCase() === defaultCurrency.toUpperCase() ? "selected" : ""}>
+                    ${code} (${symbol}) ${name}
+                </option>`
+            ).join("");
+
+            const currencyOpts = currencyCatalog.map(({ code, symbol }) =>
+                `<option value="${code}" 
+                    ${code.toUpperCase() === defaultCurrency.toUpperCase() ? "selected" : ""}>
+                    ${code} (${symbol})
                 </option>`
             ).join('');
+            document.getElementById("currencySelect").innerHTML = settingsOpts;
+            document.getElementById("editImportCurrency").innerHTML = settingsOpts;
+
+            document.getElementById("recurringCurrency").innerHTML = currencyOpts;
+            document.getElementById("editRecurringCurrency").innerHTML = currencyOpts;
         }
         
         async function saveCurrency() {
@@ -500,7 +537,7 @@
                 });
                 if (response.ok) {
                     showMessage('currencyMessage', 'Currency saved successfully', true);
-                    currentCurrency = currencyCode;
+                    defaultCurrency = currencyCode;
                 } else {
                     showMessage('currencyMessage', 'Failed to save currency', false);
                 }
@@ -579,12 +616,13 @@
             }
             list.innerHTML = `
                 <table class="expense-table">
-                    <thead><tr><th>Name</th><th>Amount</th><th>Category</th><th>Interval</th><th>Next Occurrence</th><th></th></tr></thead>
+                    <thead><tr><th>Name</th><th>Amount</th><th>Currency</th><th>Category</th><th>Interval</th><th>Next Occurrence</th><th></th></tr></thead>
                     <tbody>
                         ${recurring.map(r => `
                             <tr>
                                 <td>${r.name}</td>
-                                <td>${formatCurrency(r.amount)}</td>
+                                <td>${formatCurrency(r.amount, r.currency)}</td>
+                                <td>${r.currency}</td>
                                 <td>${r.category}</td>
                                 <td>${r.interval.charAt(0).toUpperCase() + r.interval.slice(1)}</td>
                                 <td>${findNextOccurrence(r)}</td>
@@ -628,6 +666,7 @@
             if (!recurringExpenseToEdit) return;
             document.getElementById('editRecurringName').value = recurringExpenseToEdit.name;
             document.getElementById('editRecurringAmount').value = Math.abs(recurringExpenseToEdit.amount);
+            document.getElementById('editRecurringCurrency').value = recurringExpenseToEdit.currency;
             document.getElementById('editRecurringReportGain').checked = recurringExpenseToEdit.amount > 0;
             document.getElementById('editRecurringCategory').value = recurringExpenseToEdit.category;
             document.getElementById('editRecurringInterval').value = recurringExpenseToEdit.interval;
@@ -655,6 +694,7 @@
                 name: document.getElementById('editRecurringName').value,
                 amount: amount,
                 category: document.getElementById('editRecurringCategory').value,
+                currency: document.getElementById('editRecurringCurrency').value,
                 tags: Array.from(editFormSelectedTags),
                 interval: document.getElementById('editRecurringInterval').value,
                 startDate: new Date(document.getElementById('editRecurringStartDate').value).toISOString(),
@@ -726,8 +766,11 @@
         async function handleCsvImportOld(event) {
             const file = event.target.files[0];
             if (!file) return;
+            let currency = await askImportCurrency();
+            if (!currency) return;
             const formData = new FormData();
             formData.append('file', file);
+            formData.append('currency', currency);
             const messageDiv = document.getElementById('importMessage');
             const summaryDiv = document.getElementById('importSummary');
 
@@ -766,6 +809,34 @@
             }
         }
 
+        // Launch the asking currency modal and return value at confirmation
+        async function askImportCurrency() {
+            const modal   = document.getElementById("editCurrencyImportOldCsv");            
+            const confirmButton   = document.getElementById("confirmImportCurrencyButton");
+            const cancelButton = document.getElementById("cancelImportCurrencyButton");
+            
+            modal.style.display = "flex";
+
+            return new Promise((resolve, reject) => {
+                function cleanUp() {
+                modal.style.display = "none";
+                confirmButton.removeEventListener("click", onConfirm);
+                cancelButton.removeEventListener("click", onCancel);
+                }
+                function onConfirm() {
+                    const currency = document.getElementById('editImportCurrency').value; 
+                    cleanUp(); 
+                    resolve(currency); 
+                }
+                function onCancel() { 
+                    cleanUp(); 
+                    reject(false); 
+                }                
+                confirmButton.addEventListener("click", onConfirm);
+                cancelButton.addEventListener("click", onCancel);
+            });
+        }
+
         // --- Initialization ---
         async function initialize() {
             try {
@@ -780,15 +851,16 @@
                 const expenses = await expensesResponse.json();
                 if (!recurringExpensesResponse.ok) throw new Error('Failed to fetch recurring expenses');
                 recurringExpenses = await recurringExpensesResponse.json() || [];
-
+                currencyCatalog = await fetch("worldCurrencies.json").then(r => r.json());
                 categories = [...config.categories];
-                currentCurrency = config.currency;
+                defaultCurrency = config.defaultCurrency;
                 currentStartDate = config.startDate;
                 allTags.clear();
                 (expenses || []).forEach(exp => (exp.tags || []).forEach(tag => allTags.add(tag)));
                 (recurringExpenses || []).forEach(exp => (exp.tags || []).forEach(tag => allTags.add(tag)));
 
                 renderCategories();
+                loadCurrenciesBehavior(currencyCatalog);
                 populateCurrencySelect();
                 populateStartDateInput();
                 document.getElementById('recurringCategory').innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
@@ -847,6 +919,7 @@
                 name: document.getElementById('recurringName').value,
                 amount: amount,
                 category: document.getElementById('recurringCategory').value,
+                currency: document.getElementById('recurringCurrency').value,
                 tags: Array.from(addFormSelectedTags),
                 interval: document.getElementById('recurringInterval').value,
                 startDate: getISODateWithLocalTime(document.getElementById('recurringStartDate').value),

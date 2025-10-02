@@ -13,20 +13,6 @@ on:
     types: [opened, closed, edited, review_requested]
 
 jobs:
-  weekly-summary:
-    if: github.event_name == 'schedule'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Calculate Summary
-        run: |
-          REPO="${{ github.repository }}"
-          STARS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/$REPO" | jq .stargazers_count)
-          FORKS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/$REPO" | jq .forks_count)
-          COMMITS=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/$REPO/commits?since=$(date -u -d 'last saturday' '+%Y-%m-%dT%H:%M:%SZ')" | jq length)
-          curl -H "Content-Type: application/json" -X POST \
-          -d "{\"content\": \"*Weekly summary for **$REPO***\nStars - $STARS, Forks - $FORKS, Commits this week - $COMMITS\"}" ${{ secrets.DISCORD_WEBHOOK }}
-
   issue-comment-notification:
     if: github.event_name == 'issues' || github.event_name == 'issue_comment'
     runs-on: ubuntu-latest

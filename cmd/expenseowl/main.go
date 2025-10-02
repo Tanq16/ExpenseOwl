@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -11,7 +13,7 @@ import (
 
 var version = "dev"
 
-func runServer() {
+func runServer(port int) {
 	storage, err := storage.InitializeStorage()
 	if err != nil {
 		log.Fatalf("Failed to initialize storage: %v", err)
@@ -91,12 +93,14 @@ func runServer() {
 	http.HandleFunc("/import/csv", handler.ImportCSV)
 	http.HandleFunc("/import/csvold", handler.ImportOldCSV)
 
-	log.Println("Starting server on port 8080...")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	log.Println("Starting server on port", port, "...")
+	if err := http.ListenAndServe(fmt.Sprint(":", port), nil); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }
 
 func main() {
-	runServer()
+	port := flag.Int("port", 8080, "Port to serve from")
+	flag.Parse()
+	runServer(*port)
 }

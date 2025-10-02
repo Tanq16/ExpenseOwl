@@ -277,4 +277,5 @@ var SupportedCurrencies = []string{
 	"ils", // Israeli New Shekel
 	"vnd", // Vietnamese Dong
 	"myr", // Malaysian Ringgit
+	"mad", // Moroccan Dirham
 }

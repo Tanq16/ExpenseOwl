@@ -4,54 +4,56 @@ const colorPalette = [
     '#FB5607', '#38B000', '#9B5DE5', '#F15BB5'
 ];
 const currencyBehaviors = {
-    "usd": { symbol: "$", useComma: false, useDecimals: true },
-    "eur": { symbol: "€", useComma: true, useDecimals: true },
-    "gbp": { symbol: "£", useComma: false, useDecimals: true },
-    "jpy": { symbol: "¥", useComma: false, useDecimals: false },
-    "cny": { symbol: "¥", useComma: false, useDecimals: true },
-    "krw": { symbol: "₩", useComma: false, useDecimals: false },
-    "inr": { symbol: "₹", useComma: false, useDecimals: true },
-    "rub": { symbol: "₽", useComma: true, useDecimals: true },
-    "brl": { symbol: "R$", useComma: true, useDecimals: true },
-    "zar": { symbol: "R", useComma: false, useDecimals: true },
-    "aed": { symbol: "AED", useComma: false, useDecimals: true },
-    "aud": { symbol: "A$", useComma: false, useDecimals: true },
-    "cad": { symbol: "C$", useComma: false, useDecimals: true },
-    "chf": { symbol: "Fr", useComma: false, useDecimals: true },
-    "hkd": { symbol: "HK$", useComma: false, useDecimals: true },
-    "bdt": { symbol: "৳", useComma: false, useDecimals: true },
-    "sgd": { symbol: "S$", useComma: false, useDecimals: true },
-    "thb": { symbol: "฿", useComma: false, useDecimals: true },
-    "try": { symbol: "₺", useComma: true, useDecimals: true },
-    "mxn": { symbol: "Mex$", useComma: false, useDecimals: true },
-    "php": { symbol: "₱", useComma: false, useDecimals: true },
-    "pln": { symbol: "zł", useComma: true, useDecimals: true },
-    "sek": { symbol: "kr", useComma: false, useDecimals: true },
-    "nzd": { symbol: "NZ$", useComma: false, useDecimals: true },
-    "dkk": { symbol: "kr.", useComma: true, useDecimals: true },
-    "idr": { symbol: "Rp", useComma: false, useDecimals: true },
-    "ils": { symbol: "₪", useComma: false, useDecimals: true },
-    "vnd": { symbol: "₫", useComma: true, useDecimals: false },
-    "myr": { symbol: "RM", useComma: false, useDecimals: true },
+    usd: {symbol: "$", useComma: false, useDecimals: true, useSpace: false, right: false},
+    eur: {symbol: "€", useComma: true, useDecimals: true, useSpace: false, right: false},
+    gbp: {symbol: "£", useComma: false, useDecimals: true, useSpace: false, right: false},
+    jpy: {symbol: "¥", useComma: false, useDecimals: false, useSpace: false, right: false},
+    cny: {symbol: "¥", useComma: false, useDecimals: true, useSpace: false, right: false},
+    krw: {symbol: "₩", useComma: false, useDecimals: false, useSpace: false, right: false},
+    inr: {symbol: "₹", useComma: false, useDecimals: true, useSpace: false, right: false},
+    rub: {symbol: "₽", useComma: true, useDecimals: true, useSpace: false, right: false},
+    brl: {symbol: "R$", useComma: true, useDecimals: true, useSpace: false, right: false},
+    zar: {symbol: "R", useComma: false, useDecimals: true, useSpace: true, right: true},
+    aed: {symbol: "AED", useComma: false, useDecimals: true, useSpace: true, right: true},
+    aud: {symbol: "A$", useComma: false, useDecimals: true, useSpace: false, right: false},
+    cad: {symbol: "C$", useComma: false, useDecimals: true, useSpace: false, right: false},
+    chf: {symbol: "Fr", useComma: false, useDecimals: true, useSpace: true, right: true},
+    hkd: {symbol: "HK$", useComma: false, useDecimals: true, useSpace: false, right: false},
+    bdt: {symbol: "৳", useComma: false, useDecimals: true, useSpace: false, right: false},
+    sgd: {symbol: "S$", useComma: false, useDecimals: true, useSpace: false, right: false},
+    thb: {symbol: "฿", useComma: false, useDecimals: true, useSpace: false, right: false},
+    try: {symbol: "₺", useComma: true, useDecimals: true, useSpace: false, right: false},
+    mxn: {symbol: "Mex$", useComma: false, useDecimals: true, useSpace: false, right: false},
+    php: {symbol: "₱", useComma: false, useDecimals: true, useSpace: false, right: false},
+    pln: {symbol: "zł", useComma: true, useDecimals: true, useSpace: true, right: true},
+    sek: {symbol: "kr", useComma: false, useDecimals: true, useSpace: true, right: true},
+    nzd: {symbol: "NZ$", useComma: false, useDecimals: true, useSpace: false, right: false},
+    dkk: {symbol: "kr.", useComma: true, useDecimals: true, useSpace: true, right: true},
+    idr: {symbol: "Rp", useComma: false, useDecimals: true, useSpace: true, right: true},
+    ils: {symbol: "₪", useComma: false, useDecimals: true, useSpace: false, right: false},
+    vnd: {symbol: "₫", useComma: true, useDecimals: false, useSpace: true, right: true},
+    myr: {symbol: "RM", useComma: false, useDecimals: true, useSpace: false, right: false},
+    mad: {symbol: "DH", useComma: false, useDecimals: true, useSpace: true, right: true},
 };
 
-// let currentCurrency = 'usd';
-// let startDate = 1;
-// let currentDate = new Date();
-// let allExpenses = [];
-// let allTags = new Set();
-
 function formatCurrency(amount) {
-    const behavior = currencyBehaviors[currentCurrency] || { symbol: '$', useComma: false, useDecimals: true };
+    const behavior = currencyBehaviors[currentCurrency] || {
+        symbol: "$",
+        useComma: false,
+        useDecimals: true,
+        useSpace: false,
+        right: false,
+    };
     const isNegative = amount < 0;
     const absAmount = Math.abs(amount);
     const options = {
         minimumFractionDigits: behavior.useDecimals ? 2 : 0,
         maximumFractionDigits: behavior.useDecimals ? 2 : 0,
     };
-    let formattedAmount = new Intl.NumberFormat(behavior.useComma ? 'de-DE' : 'en-US', options).format(absAmount);
-    const postfixCurrencies = new Set(['kr', 'kr.', 'Fr', 'zł']);
-    let result = postfixCurrencies.has(behavior.symbol) ? `${formattedAmount} ${behavior.symbol}` : `${behavior.symbol}${formattedAmount}`;
+    let formattedAmount = new Intl.NumberFormat(behavior.useComma ? "de-DE" : "en-US",options).format(absAmount);
+    let result = behavior.right
+        ? `${formattedAmount}${behavior.useSpace ? " " : ""}${behavior.symbol}`
+        : `${behavior.symbol}${behavior.useSpace ? " " : ""}${formattedAmount}`;
     return isNegative ? `-${result}` : result;
 }
 

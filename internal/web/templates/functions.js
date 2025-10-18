@@ -34,6 +34,7 @@ const currencyBehaviors = {
     vnd: {symbol: "₫", useComma: true, useDecimals: false, useSpace: true, right: true},
     myr: {symbol: "RM", useComma: false, useDecimals: true, useSpace: false, right: false},
     mad: {symbol: "DH", useComma: false, useDecimals: true, useSpace: true, right: true},
+    ron: {symbol: "lei", useComma: true, useDecimals: true, useSpace: true, right: true},
 };
 
 function formatCurrency(amount) {

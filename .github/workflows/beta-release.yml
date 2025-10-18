@@ -1,0 +1,112 @@
+name: Beta Release
+
+on:
+  push:
+    branches: [ beta ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.new_version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Determine Version
+        id: version
+        run: |
+          # Get the latest version tag, default to v0.1 if none exists
+          LATEST_TAG=$(gh release list -L 1 | cut -f 1 | sed 's/Release //' || echo "v0.0")
+          LATEST_TAG=${LATEST_TAG:-v0.0}
+          
+          # Extract current version numbers
+          MAJOR=$(echo $LATEST_TAG | cut -d. -f1 | sed 's/v//')
+          MINOR=$(echo $LATEST_TAG | cut -d. -f2)
+          
+          # Check commit message for version bump
+          if git log -1 --pretty=%B | grep -i "version bump"; then
+            NEW_VERSION="v$((MAJOR + 1)).0-beta"
+          else
+            NEW_VERSION="v$MAJOR.$((MINOR + 1))-beta"
+          fi
+          
+          echo "Previous version: $LATEST_TAG"
+          echo "New version: $NEW_VERSION"
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Create Release
+        id: create_release
+        run: |
+          gh release create "${{ steps.version.outputs.new_version }}" \
+            --title "Release ${{ steps.version.outputs.new_version }}" \
+            --draft \
+            --notes "Release ${{ steps.version.outputs.new_version }}" \
+            --target ${{ github.sha }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  build:
+    needs: create-release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [linux, windows, darwin]
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - name: Build Binary
+        run: |
+          GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags="-X 'main.version=${{ needs.create-release.outputs.version }}"" -o expenseowl-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.os == 'windows' && '.exe' || '' }} ./cmd/expenseowl
+      - name: Upload Release Asset
+        run: |
+          gh release upload "${{ needs.create-release.outputs.version }}" \
+            "expenseowl-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.os == 'windows' && '.exe' || '' }}"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  publish:
+    needs: [create-release, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish Release
+        run: |
+          gh release edit "${{ needs.create-release.outputs.version }}" --draft=false
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  docker:
+    needs: [create-release, build, publish]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: tanq16
+          password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            tanq16/expenseowl:beta
+            tanq16/expenseowl:${{ needs.create-release.outputs.version }}

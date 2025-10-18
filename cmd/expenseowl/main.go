@@ -50,6 +50,7 @@ func runServer(port int) {
 	// Static File Handlers
 	http.HandleFunc("/functions.js", handler.ServeStaticFile)
 	http.HandleFunc("/manifest.json", handler.ServeStaticFile)
+	http.HandleFunc("/worldCurrencies.json", handler.ServeStaticFile)
 	http.HandleFunc("/sw.js", handler.ServeStaticFile)
 	http.HandleFunc("/pwa/", handler.ServeStaticFile)
 	http.HandleFunc("/style.css", handler.ServeStaticFile)
@@ -62,8 +63,9 @@ func runServer(port int) {
 	http.HandleFunc("/config", handler.GetConfig)
 	http.HandleFunc("/categories", handler.GetCategories)
 	http.HandleFunc("/categories/edit", handler.UpdateCategories)
-	http.HandleFunc("/currency", handler.GetCurrency)
-	http.HandleFunc("/currency/edit", handler.UpdateCurrency)
+	http.HandleFunc("/currency", handler.GetDefaultCurrency)
+	http.HandleFunc("/currency/edit", handler.UpdateDefaultCurrency)
+	http.HandleFunc("/currency/catalog", handler.GetCurrencyCatalog)
 	http.HandleFunc("/startdate", handler.GetStartDate)
 	http.HandleFunc("/startdate/edit", handler.UpdateStartDate)
 	// http.HandleFunc("/tags", handler.GetTags)
@@ -81,6 +83,10 @@ func runServer(port int) {
 	http.HandleFunc("/recurring-expenses", handler.GetRecurringExpenses)         // GET all
 	http.HandleFunc("/recurring-expense/edit", handler.UpdateRecurringExpense)   // PUT for edit
 	http.HandleFunc("/recurring-expense/delete", handler.DeleteRecurringExpense) // DELETE
+
+	// Fx
+	http.HandleFunc("/fx/rate", handler.GetRate) // GET
+	http.HandleFunc("/fx/rates", handler.GetRates) // POST
 
 	// Import/Export
 	http.HandleFunc("/export/csv", handler.ExportCSV)

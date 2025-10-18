@@ -77,6 +77,11 @@
                 </div>
                 
                 <div class="form-group">
+                    <label for="currency">Currency</label>
+                    <select id="expenseCurrency"></select>
+                </div>
+
+                <div class="form-group">
                     <label for="date">Date</label>
                     <input type="date" id="date" required>
                     <script>
@@ -97,6 +102,7 @@
                 <button type="submit" class="nav-button">Add Expense</button>
             </form>
             <div id="formMessage" class="form-message"></div>
+            <div id="formMessage" class="form-message"></div>
         </div>
 
         <div id="tableContainer">
@@ -116,14 +122,16 @@
 
     <script src="/functions.js"></script>
     <script>
-        let currentCurrency = 'usd';
+        let defaultCurrency = 'USD';
         let currentDate = new Date();
         let allExpenses = [];
         let expensesForTable = [];
         let startDate = 1;
         let allTags = new Set();
         let selectedTags = new Set();
-
+        let currencyCatalog = [];
+        let rates = []; //Map of rates
+            
         function createTable(expenses) {
             if (!expenses || expenses.length === 0) {
                 const message = document.getElementById('showAllToggle').checked ? 
@@ -132,6 +140,8 @@
                 return `<div class="no-data">${message}</div>`;
             }
             const hasTags = expenses.some(exp => exp.tags && exp.tags.length > 0);
+            const hasOtherCurrencies = expenses.some(exp => exp.currency != defaultCurrency);
+            
             return `
                 <table class="expense-table">
                     <thead>
@@ -140,6 +150,7 @@
                             <th>Category</th>
                             ${hasTags ? '<th class="tags-column">Tags</th>' : ''}
                             <th>Amount</th>
+                            ${hasOtherCurrencies ? `<th class="tags-column">In ${defaultCurrency}</th>` : ''}
                             <th class="date-header">Date</th>
                             <th></th>
                         </tr>
@@ -150,7 +161,8 @@
                                 <td>${escapeHTML(expense.name)}</td>
                                 <td>${escapeHTML(expense.category)}</td>
                                 ${hasTags ? `<td class="tags-column">${(expense.tags || []).map(escapeHTML).join(', ')}</td>` : ''}
-                                <td class="amount">${formatCurrency(expense.amount)}</td>
+                                <td class="amount">${formatCurrency(expense.amount, expense.currency)}</td>
+                                ${hasOtherCurrencies ? `<td class="amount">${expense.currency != defaultCurrency ? formatToConvertedAmount(expense.amount, rates?.[expense.date.slice(0, 10)]?.[expense.currency]?.[defaultCurrency] ?? 0) : ''}</td>` : ''}
                                 <td class="date-column">${formatDateFromUTC(expense.date)}</td>
                                 <td>
                                     <button class="edit-button" onclick="editExpenseByIndex(${index})">
@@ -182,7 +194,7 @@
         function editExpenseByIndex(index) {
             const expense = expensesForTable[index];
             if (expense) {
-                editExpense(expense.id, expense.name, expense.category, expense.amount, (expense.tags || []), expense.date);
+                editExpense(expense.id, expense.name, expense.category, expense.amount, (expense.tags || []), expense.currency, expense.date);
             }
         }
 
@@ -207,11 +219,12 @@
             });
         }
 
-        function editExpense(id, name, category, amount, tags, date) {
+        function editExpense(id, name, category, amount, tags, currency, date) {
             const isGain = amount > 0;
             document.getElementById('name').value = name;
             document.getElementById('category').value = category;
             document.getElementById('amount').value = Math.abs(amount);
+            document.getElementById('expenseCurrency').value = currency;
             document.getElementById('reportGain').checked = isGain;
             renderSelectedTags(tags);
             
@@ -302,6 +315,16 @@
             });
         }
 
+        async function loadCurrencies(){
+            const map = await fetch("/currency/catalog").then(r=>r.json());
+            const opts = Object.keys(map).map(code => 
+                `<option value="${code}" ${code.toUpperCase() === defaultCurrency.toUpperCase() ? "selected" : ""}>
+                    ${code} (${map[code]})
+                </option>`
+            ).join('');
+            document.getElementById("expenseCurrency").innerHTML = opts;
+        }
+
         async function initialize() {
             try {
                 const configResponse = await fetch('/config');
@@ -311,21 +334,37 @@
                 categorySelect.innerHTML = config.categories.map(cat => 
                     `<option value="${cat}">${cat}</option>`
                 ).join('');
-                currentCurrency = config.currency;
+                defaultCurrency = config.defaultCurrency;
+                currencyCatalog = await fetch("worldCurrencies.json").then(r => r.json());
                 startDate = config.startDate;
                 
                 const response = await fetch('/expenses');
-                if (!response.ok) throw new Error('Failed to fetch data');
+                if (!response.ok) throw new Error('Failed to fetch expenses data');
                 const data = await response.json();
                 allExpenses = Array.isArray(data) ? data : (data && Array.isArray(data.expenses) ? data.expenses : []);
-                
+
+                const ratesResponse = await fetch('/fx/rates', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(extractRateParams(allExpenses, defaultCurrency))
+                });
+                if (!ratesResponse.ok) throw new Error('Failed to fetch rates data');
+                const ratesData = await ratesResponse.json();
+                rates = (ratesData && typeof ratesData === 'object') ? ratesData : {};
+
                 allTags.clear();
                 allExpenses.forEach(exp => {
                     if (exp.tags) {
                         exp.tags.forEach(tag => allTags.add(tag));
                     }
+                    // Defaulting to default currency if empty in case import went wrong
+                    if (exp.currency == "") {
+                        exp.currency = defaultCurrency
+                    }
                 });
 
+                loadCurrenciesBehavior(currencyCatalog);
+                loadCurrencies();
                 updateMonthDisplay();
                 updateTable();
                 setupTagInput();
@@ -408,6 +447,7 @@
                 name: document.getElementById('name').value,
                 category: document.getElementById('category').value,
                 amount: amount,
+                currency: document.getElementById('expenseCurrency').value,
                 date: getISODateWithLocalTime(document.getElementById('date').value),
                 tags: Array.from(selectedTags)
             };
@@ -441,6 +481,8 @@
                 setTimeout(() => {
                     messageDiv.textContent = '';
                     messageDiv.className = 'form-message';
+                    // avoid a refresh to show converted amounts if already processed
+                    initialize();
                 }, 3000);
             } catch (error) {
                 console.error('Error saving expense:', error);

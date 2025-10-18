@@ -278,4 +278,5 @@ var SupportedCurrencies = []string{
 	"vnd", // Vietnamese Dong
 	"myr", // Malaysian Ringgit
 	"mad", // Moroccan Dirham
+	"ron", // Romanian Leu
 }
